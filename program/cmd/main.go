@@ -32,7 +32,6 @@ type requestStructure struct{
 
 type responseStructure struct{
 	Status string `json:"status"`
-	Message string `json:"message"`
 	ClassroomsAsigned int `json:"classrooms-assigned"`
 	LabsAsigned int `json:"labs-assigned"`
 }
@@ -82,8 +81,8 @@ func main() {
 	//establish connection with the faculty
 	socket := zmq4.NewReq(context.Background(), zmq4.WithDialerRetry(time.Second))
 	defer socket.Close()
-	if err := socket.Dial(facultyServer); err != nil {
-		log.Fatal("Couldnt connect with faculty:" , err)
+	if err := socket.Dial(fmt.Sprintf("tcp://%s", facultyServer)); err != nil {
+		log.Fatal("Couldnt connect with faculty:" , err.Error())
 	}
 
 	jsonMessage, err := json.Marshal(request)
@@ -101,8 +100,8 @@ func main() {
 	}
 	//unmarshal response
 	responseJson := responseStructure{}
-	if err := json.Unmarshal([]byte(response.String()), &responseJson); err != nil{
-		log.Fatal("Invalid response received")
+	if err := json.Unmarshal(response.Bytes(), &responseJson); err != nil{
+		log.Fatal("Invalid response received ", err.Error())
 	}
 
 	//print result 
