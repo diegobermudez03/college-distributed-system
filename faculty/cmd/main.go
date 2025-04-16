@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/diegobermudez03/college-distributed-system/faculty/internal/client"
 	"github.com/diegobermudez03/college-distributed-system/faculty/internal/server"
 )
 
@@ -28,7 +29,7 @@ type configuration struct {
 func main() {
 	//input structure (atributes): min programs is optional argument for testing, reduces the number of programs that we wait to process
 	// --name=<faculty-name> --semester=<semester> --dti-server=<dti-server-address> --min-programs=<number-of-min-programs> --listen-port=5000
-	// executable --name=tecnologia --semester=2025-10 --dti-server=30.10.10.25:5000 --min-programs=2 --listen-port=5000
+	// executable --name=tecnologia --semester=2025-10 --dti-server=127.0.0.1:5000 --min-programs=2 --listen-port=6000
 
 	//check number of arguments, at least 4 (min programs is optional)
 	if len(os.Args) < 4{
@@ -70,10 +71,12 @@ func main() {
 		log.Fatal("invalid arguments")
 	}
 
+	//create faculty client
+	client := client.NewFacultyClient(config.dtiServer, config.semester, config.name)
 	//start server
-	server := server.NewFacultyServer(config.listenPort, config.minPrograms)
+	server := server.NewFacultyServer(config.listenPort, config.minPrograms, config.semester, client)
 	if err := server.Run(); err != nil{
-		log.Fatal("Unable to start server at port ", config.listenPort)
+		log.Fatal("Error ", err.Error())
 	}
 }
 

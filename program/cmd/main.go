@@ -34,12 +34,13 @@ type responseStructure struct{
 	Status string `json:"status"`
 	ClassroomsAsigned int `json:"classrooms-assigned"`
 	LabsAsigned int `json:"labs-assigned"`
+	ErrorRequest bool 		`json:"error-request"`
 }
 
 func main() {
 	//check number of arguments, should be (using labels so that the order dont matter):
 	// --name=<program-name> --semester=<semester> --classrooms=<num-classrooms> --labs=<num-labs> --faculty-server=<faculty-address>
-	//	executable --name=Ingenieria-Sistemas --semester=2025-10 --classrooms=4 --labs=10 --faculty-server=30.125.147.36:5000  
+	//	executable --name=Ingenieria-Sistemas --semester=2025-10 --classrooms=4 --labs=10 --faculty-server=127.0.0.1:6000  
 	if len(os.Args) < 6{
 		log.Fatal("invalid number of arguments")
 	} 
@@ -102,6 +103,12 @@ func main() {
 	responseJson := responseStructure{}
 	if err := json.Unmarshal(response.Bytes(), &responseJson); err != nil{
 		log.Fatal("Invalid response received ", err.Error())
+	}
+
+	//if we received an error then we simply print the error and stop
+	if responseJson.ErrorRequest{
+		log.Fatal("Error received from faculty ", responseJson.Status)
+		return
 	}
 
 	//print result 
