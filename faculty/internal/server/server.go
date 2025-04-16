@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/diegobermudez03/college-distributed-system/faculty/internal/client"
 	"github.com/diegobermudez03/college-distributed-system/faculty/internal/models"
@@ -24,68 +25,97 @@ type FacultyServer struct {
 	listenPort int
 	minPrograms int
 	semester string
-	clients map[uuid.UUID]models.ProgramRequest
+	semesters map[string]map[uuid.UUID]models.ProgramRequest	//map of semesters, each one with its clients
 	client *client.FacultyClient
+	socket zmq4.Socket
 }
 
 func NewFacultyServer(listenPort, minPrograms int, semester string, client *client.FacultyClient) *FacultyServer {
 	return &FacultyServer{
 		listenPort: listenPort,
 		minPrograms: minPrograms,
-		clients: map[uuid.UUID]models.ProgramRequest{},
+		semesters: map[string]map[uuid.UUID]models.ProgramRequest{},
 		semester: semester,
 		client: client,
 	}
 }
 
-// method to run the zeromq request reply server
-func (s *FacultyServer) Run() error {
-	//start zeromq request reply server
-	//socket := zmq4.NewRep(context.Background())
-	socket := zmq4.NewRouter(context.Background())
-	defer socket.Close()
-	if err := socket.Listen(fmt.Sprintf("tcp://*:%d", s.listenPort)); err != nil {
-		return errors.New(fmt.Sprint("Unable to start server at port ", s.listenPort))
-	}
-	log.Printf("Listening at port %d", s.listenPort)
-	//listen for the program requests
-	if err := s.serveServer(socket); err != nil{
-		return err
-	}
-	return nil
-}
-
-func (s *FacultyServer) serveServer(socket zmq4.Socket) error{
-	//receive minimum program requests
-	if err := s.listenProgramRequests(socket); err != nil{
-		return err
-	}
-	//send request to the DTI and receive the responses
-	responses, err := s.client.SendFacultyRequest(s.clients)
-	if err != nil{
-		return err 
-	}
-	//iterate over all responses, get the socket ID for each one, and then send the JSON response
-	for _, clientResponse := range responses{
-		client, ok := s.clients[clientResponse.ClientId]
-		if !ok{
-			continue 
+//method to run the zeromq request reply server and listen for the programs requests
+func (s *FacultyServer) Listen() (chan models.SemesterRequest, *sync.WaitGroup,error) {
+	channel := make(chan models.SemesterRequest)
+	var err error = nil
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	outerWg := sync.WaitGroup{}
+	outerWg.Add(1)
+	go func (){
+		//start zeromq request reply server
+		socket := zmq4.NewRouter(context.Background())
+		s.socket = socket
+		defer socket.Close()
+		if errr := socket.Listen(fmt.Sprintf("tcp://*:%d", s.listenPort)); errr != nil {
+			err = errors.New(fmt.Sprint("Unable to start server at port ", s.listenPort))
 		}
-		bytes, _ := json.Marshal(clientResponse)
-		socket.Send(zmq4.NewMsgFrom(client.ClientSocketId, bytes))
-	}
-	return nil
+		log.Printf("Listening at port %d", s.listenPort)
+		wg.Done()
+		//listen for the program requests
+		if errr := s.listenProgramRequests(channel); errr != nil{
+			err = errr
+		}
+		//this signals the outer main go routine to stop waiting and end the execution
+		outerWg.Done()
+	}()
+	//this is to wait til the go routine may return an error or not
+	wg.Wait()
+	return channel,&outerWg,err
 }
 
-func (s *FacultyServer) listenProgramRequests(socket zmq4.Socket) error{
+//method that reads from the reponse channel and then answers to the programs
+func (s *FacultyServer) SendReplies(channel chan models.DTIResponse){
+	go func(){
+		for response := range channel{
+			//get semester programs
+			semesterPrograms, ok := s.semesters[response.Semester]
+			if !ok{
+				continue
+			}
+			//iterate over all responses, get the socket ID for each one, and then send the JSON response
+			for _, clientResponse := range response.Programs{
+				client, ok := semesterPrograms[clientResponse.ProgramId]
+				if !ok{
+					continue 
+				}
+				//transform the response into the valid dto and answer to the program
+				clientDTO := models.ProgramResponse{
+					ClientId: client.ClientId,
+					Status: clientResponse.StatusMessage,
+					ClassroomsAsigned: clientResponse.Classrooms,
+					LabsAsigned: clientResponse.Labs,
+					ErrorRequest: false,
+				}
+				bytes, _ := json.Marshal(clientDTO)
+				s.socket.Send(zmq4.NewMsgFrom(client.ClientSocketId, bytes))
+			}
+		}
+	}()
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////
+//						INTERNAL METHODS
+///////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////
+
+
+func (s *FacultyServer) listenProgramRequests(channel chan models.SemesterRequest) error{
 	//wait for the minimum of programs to communicate with the DTI
-	for i := 0; i < s.minPrograms; i++ {
+	for{
 		//extract the id of the client
-		message, err := socket.Recv()
+		message, err := s.socket.Recv()
 		clientId := message.Frames[0]
 		if err != nil{
 			//if theres an error we are going to suppose that it was due to the program client
-			i--
 			continue
 		}
 		//create program request and unmarshal it from program message
@@ -96,23 +126,42 @@ func (s *FacultyServer) listenProgramRequests(socket zmq4.Socket) error{
 		if err := json.Unmarshal(message.Frames[2], &programRequest); err != nil{
 			//if there's an error reading, then we are going to suppose that
 			//the program did something wrong, but we wont break, so we simply ignore
-			i--
 			continue
 		}
-		//check if the semester is the correct one, if not, then we answer the program and end
-		if programRequest.Semester != s.semester{
-			errorResponse := models.ResponseRequest{
+		//check if we have a semester set, if we have, then we only receive programs from that semester
+		//if we dont have, then we accept all semester programs (using the min programs number)
+		if s.semester != "" && programRequest.Semester != s.semester{
+			errorResponse := models.ProgramResponse{
 				ClientId: programRequest.ClientId,
 				Status: invalidSemester,
 				ErrorRequest: true,
 			}
 			errorBytes, _ := json.Marshal(errorResponse)
-			socket.Send(zmq4.NewMsgFrom(programRequest.ClientSocketId, errorBytes))
-			i--
+			s.socket.Send(zmq4.NewMsgFrom(programRequest.ClientSocketId, errorBytes))
 			continue
 		}
-		//add client to the message
-		s.clients[programRequest.ClientId] = programRequest
+		//save client in semesters
+		semesterPrograms, ok := s.semesters[programRequest.Semester]
+		if !ok{
+			semesterPrograms = map[uuid.UUID]models.ProgramRequest{}
+			s.semesters[programRequest.Semester] = semesterPrograms
+		}
+		semesterPrograms[programRequest.ClientId] = programRequest
+		//if the semester is complete, then we redirect it to the DTI request, we use a new go routine (thread)
+		//so that we can still listen for new program requests
+		if len(semesterPrograms) == s.minPrograms{
+			//send request in channel for the client to manage it
+			channel <- models.SemesterRequest{
+				Semester: programRequest.Semester,
+				Programs: semesterPrograms,
+			}
+			delete(s.semesters, programRequest.Semester)
+			//if we had a semester configured, then we end listening and we notify the client of that
+			if s.semester != ""{
+				close(channel)	//by closing the clients for range will notice and stop listening
+				break
+			}
+		}
 	}
 	return nil
 }

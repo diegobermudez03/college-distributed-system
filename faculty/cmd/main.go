@@ -32,7 +32,7 @@ func main() {
 	// executable --name=tecnologia --semester=2025-10 --dti-server=127.0.0.1:5000 --min-programs=2 --listen-port=6000
 
 	//check number of arguments, at least 4 (min programs is optional)
-	if len(os.Args) < 4{
+	if len(os.Args) < 3{
 		log.Fatal("not enough arguments")
 	}
 	config := configuration{
@@ -67,7 +67,7 @@ func main() {
 	}
 
 	//check if we have all the arguments
-	if config.name == "" || config.semester == "" || config.dtiServer == ""{
+	if config.name == "" || config.dtiServer == ""{
 		log.Fatal("invalid arguments")
 	}
 
@@ -75,8 +75,22 @@ func main() {
 	client := client.NewFacultyClient(config.dtiServer, config.semester, config.name)
 	//start server
 	server := server.NewFacultyServer(config.listenPort, config.minPrograms, config.semester, client)
-	if err := server.Run(); err != nil{
-		log.Fatal("Error ", err.Error())
+
+	//listen from server
+	requestsChannel, wg, err := server.Listen()
+	if err != nil{
+		log.Fatal(err.Error())
 	}
+	//start zmq4 client and be ready to send requests
+	if err := client.SendRequests(requestsChannel); err != nil{
+		log.Fatal(err.Error())
+	}
+	//listen in the zmq4 client
+	responsesChannel := client.ListenResponses(wg)
+	//run the server function that responds to the programs
+	server.SendReplies(responsesChannel)
+
+	//wait until the faculty server and client indicates that we are done
+	wg.Wait()
 }
 
