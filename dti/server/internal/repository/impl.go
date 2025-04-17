@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"errors"
+
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -29,7 +31,10 @@ func (r *CollegeRepositoryPostgres) GetFacultiesCount() (int, error){
 func (r *CollegeRepositoryPostgres) GetSemester(semester string) (*domain.SemesterAvailabilityModel, error){
 	var semesterModel domain.SemesterAvailabilityModel
 	err := r.db.Where("semester = ?", semester).First(&semesterModel).Error
-	return &semesterModel, err
+	if errors.Is(err, gorm.ErrRecordNotFound){
+		return nil, nil
+	}
+	return &semesterModel, nil
 }
 
 func (r *CollegeRepositoryPostgres) CreateSemester(semester *domain.SemesterAvailabilityModel) error{
@@ -51,7 +56,7 @@ func (r *CollegeRepositoryPostgres) GetAssignedResourcesOfSemester(semesterId uu
 func (r *CollegeRepositoryPostgres) GetFullFacultyById(facultyId uuid.UUID) (*domain.FacultyModel, error){
 	var faculty domain.FacultyModel
 	//preload since we need the programs to be fill
-	err := r.db.Preload("Programs").Where("id = ?", facultyId).First(&faculty).Error
+	err := r.db.Preload("Programs").First(&faculty, "id = ?", facultyId).Error
 	return &faculty, err
 }
 
@@ -69,4 +74,11 @@ func (r *CollegeRepositoryPostgres) CreateAlert(alert *domain.AlertModel) error{
 	return r.db.Create(&alert).Error
 }
 
-
+func (r *CollegeRepositoryPostgres) GetProgramAssignment(programId uuid.UUID, semesterId uuid.UUID) (*domain.AssignationModel, error){
+	var assignation domain.AssignationModel
+	err := r.db.Where("program_id = ? AND semester_id = ?", programId, semesterId).First(&assignation).Error
+	if errors.Is(err, gorm.ErrRecordNotFound){
+		return nil, nil
+	}
+	return &assignation, err
+}

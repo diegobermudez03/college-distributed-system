@@ -46,7 +46,7 @@ func (s *CollegeServiceImpl) PoblateFacultiesAndPrograms() error {
 		ID:   uuid.New(),
 		Name: "Ingenieria",
 	}
-	scienceFaculty.Programs = []domain.ProgramModel{
+	engineering.Programs = []domain.ProgramModel{
 		{ID: uuid.New(), Name: "Ingenieria Civil", FacultyId: engineering.ID},
 		{ID: uuid.New(), Name: "Ingenieria Electronica", FacultyId: engineering.ID},
 		{ID: uuid.New(), Name: "Ingenieria de Sistemas", FacultyId: engineering.ID},
@@ -106,7 +106,7 @@ func (s *CollegeServiceImpl) PoblateFacultiesAndPrograms() error {
 		ID:   uuid.New(),
 		Name: "Ciencias Economicas",
 	}
-	education.Programs = []domain.ProgramModel{
+	economy.Programs = []domain.ProgramModel{
 		{ID: uuid.New(), Name: "Administracion de Empresas", FacultyId: economy.ID},
 		{ID: uuid.New(), Name: "Contabilidad", FacultyId: economy.ID},
 		{ID: uuid.New(), Name: "Economia", FacultyId: economy.ID},
@@ -118,7 +118,7 @@ func (s *CollegeServiceImpl) PoblateFacultiesAndPrograms() error {
 		ID:   uuid.New(),
 		Name: "Arquitectura",
 	}
-	education.Programs = []domain.ProgramModel{
+	architecture.Programs = []domain.ProgramModel{
 		{ID: uuid.New(), Name: "Arquitectura", FacultyId: architecture.ID},
 		{ID: uuid.New(), Name: "Urbanismo", FacultyId: architecture.ID},
 		{ID: uuid.New(), Name: "Diseño de Interiores", FacultyId: architecture.ID},
@@ -130,7 +130,7 @@ func (s *CollegeServiceImpl) PoblateFacultiesAndPrograms() error {
 		ID:   uuid.New(),
 		Name: "Tecnologia",
 	}
-	education.Programs = []domain.ProgramModel{
+	tecnology.Programs = []domain.ProgramModel{
 		{ID: uuid.New(), Name: "Desarrollo de Software", FacultyId: tecnology.ID},
 		{ID: uuid.New(), Name: "Redes y Telecomunicaciones", FacultyId: tecnology.ID},
 		{ID: uuid.New(), Name: "Ciberseguridad", FacultyId: tecnology.ID},

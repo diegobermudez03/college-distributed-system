@@ -29,7 +29,7 @@ type configuration struct {
 func main() {
 	//input structure (atributes): min programs is optional argument for testing, reduces the number of programs that we wait to process
 	// --name=<faculty-name> --semester=<semester> --dti-server=<dti-server-address> --min-programs=<number-of-min-programs> --listen-port=5000
-	// executable --name=tecnologia --semester=2025-10 --dti-server=127.0.0.1:5000 --min-programs=2 --listen-port=6000
+	// executable --name=tecnologia --semester=2025-10 --dti-server=127.0.0.1:6000 --min-programs=2 --listen-port=5000
 
 	//check number of arguments, at least 4 (min programs is optional)
 	if len(os.Args) < 3{
@@ -86,7 +86,7 @@ func main() {
 		log.Fatal(err.Error())
 	}
 	//listen in the zmq4 client
-	responsesChannel := client.ListenResponses(wg)
+	responsesChannel := client.ListenResponses(wg, requestsChannel)
 	//run the server function that responds to the programs
 	server.SendReplies(responsesChannel)
 

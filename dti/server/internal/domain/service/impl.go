@@ -16,6 +16,7 @@ const (
 	invalidProgramMsg = "INVALID-PROGRAM" 
 	invalidFacultyMsg = "INVALID-FACULTY"
 	notEnoughResourcesMsg = "NOT-ENOUGH-RESOURCES-FOR-ASSIGNMENT"
+	alreadyHaveAssignation = "PROGRAM-ALREADY-HAS-RESOURCES-FOR-SEMESTER"
 	okMsg = "OK"
 )
 
@@ -68,6 +69,7 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 	if err != nil{
 		return nil, err
 	}
+	log.Println("We got the faculty programs ", facultyPrograms)
 	//base struct for response
 	response := new(domain.DTIResponseDTO)
 	*response = domain.DTIResponseDTO{
@@ -76,12 +78,14 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 		ErrorMessage: "",
 		Programs: make([]domain.DTIProgramResponseDTO, 0),
 	}
+	log.Println("We are goiing to iterate over the program requsts")
 	//now that we are sure that we have the semester info, we iterate over the faculty request programs
 	for _, program := range request.Programs{
 		programName := s.convertToBasicString(program.ProgramName)
 
 		//if the program isnt a valid faculty program, we add it as a program error
 		if programId, ok := facultyPrograms[programName]; !ok{
+			log.Println("The program is invalid")
 			response.Programs = append(response.Programs, domain.DTIProgramResponseDTO{
 				ProgramId: program.ProgramId,
 				Classrooms: 0,
@@ -95,7 +99,7 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 		}
 	}
 	
-	return nil, nil
+	return response, nil
 }
 
 
@@ -106,6 +110,17 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 /////////////////////////////////////////////////////////////////////////////
 
 func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, semester *SemesterAvailability, programRequest *domain.DTIProgramRequestDTO, programId uuid.UUID, goRoutineId uuid.UUID) []domain.DTIProgramResponseDTO{
+	//check if we already have an assignation for this program for this semester, if we have, then we send the erroe
+	if ass, _ := s.repository.GetProgramAssignment(programId, semester.Id); ass != nil{
+		programs = append(programs, domain.DTIProgramResponseDTO{
+			ProgramId: programRequest.ProgramId,
+			Classrooms: 0,
+			Labs: 0,
+			StatusMessage: alreadyHaveAssignation,
+		})
+		return programs
+	}
+	
 	//create the response DTO struct
 	programResponse := domain.DTIProgramResponseDTO{
 		ProgramId: programRequest.ProgramId,
@@ -123,6 +138,7 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 	//if we have enough mobile labs (which implicitely checks if we have enough labs) and we have enough classrooms
 	if mobileLabsNeeded <= semester.MobileLabs && remainingClassrooms >= programRequest.Classrooms{
 		assignation := domain.AssignationModel{
+			ID: uuid.New(),
 			SemesterId: semester.Id,
 			ProgramId: programId,
 			CreatedAt: time.Now(),
@@ -202,6 +218,7 @@ func (s *CollegeServiceImpl) loadSemester(semester string)(*SemesterAvailability
 		return nil, err
 	}else if semesterModel == nil{	//if the semester wasnt found, then we have to create it
 		semesterModel = &domain.SemesterAvailabilityModel{
+			ID: uuid.New(),
 			Semester: semester,
 			Classrooms: s.config.Classrooms,
 			Labs: s.config.Labs,
@@ -250,6 +267,7 @@ func (s *CollegeServiceImpl) getFacultyPrograms(facultyName string) (map[string]
 	}
 	//we now read the full faculty with its programs
 	faculty, err = s.repository.GetFullFacultyById(faculty.ID)
+	log.Println("FULL FACULTY ", faculty)
 	if err != nil{
 		return nil, err
 	}

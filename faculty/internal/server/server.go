@@ -28,6 +28,7 @@ type FacultyServer struct {
 	semesters map[string]map[uuid.UUID]models.ProgramRequest	//map of semesters, each one with its clients
 	client *client.FacultyClient
 	socket zmq4.Socket
+	closeServerWg *sync.WaitGroup
 }
 
 func NewFacultyServer(listenPort, minPrograms int, semester string, client *client.FacultyClient) *FacultyServer {
@@ -37,6 +38,7 @@ func NewFacultyServer(listenPort, minPrograms int, semester string, client *clie
 		semesters: map[string]map[uuid.UUID]models.ProgramRequest{},
 		semester: semester,
 		client: client,
+		closeServerWg: &sync.WaitGroup{},
 	}
 }
 
@@ -62,6 +64,7 @@ func (s *FacultyServer) Listen() (chan models.SemesterRequest, *sync.WaitGroup,e
 		if errr := s.listenProgramRequests(channel); errr != nil{
 			err = errr
 		}
+		s.closeServerWg.Wait()	//wait till we have sent all the replies to the programs
 		//this signals the outer main go routine to stop waiting and end the execution
 		outerWg.Done()
 	}()
@@ -72,19 +75,24 @@ func (s *FacultyServer) Listen() (chan models.SemesterRequest, *sync.WaitGroup,e
 
 //method that reads from the reponse channel and then answers to the programs
 func (s *FacultyServer) SendReplies(channel chan models.DTIResponse){
+	s.closeServerWg.Add(1)
 	go func(){
 		for response := range channel{
+			log.Println("Processing DTI response")
 			if response.ErrorFound{
 				log.Printf("Error received from DTI: %s", response.ErrorMessage)
 			}
 			//get semester programs
 			semesterPrograms, ok := s.semesters[response.Semester]
+			log.Println("Looking for semester: ", response.Semester)
 			if !ok{
+				log.Println("DIDNT FIND SEMESTER PROGRAMS")
 				continue
 			}
 			//iterate over all responses, get the socket ID for each one, and then send the JSON response
 			for _, clientResponse := range response.Programs{
 				client, ok := semesterPrograms[clientResponse.ProgramId]
+				log.Println("Sending reply to client ", client.ProgramName)
 				if !ok{
 					continue 
 				}
@@ -113,7 +121,9 @@ func (s *FacultyServer) SendReplies(channel chan models.DTIResponse){
 				bytes, _ := json.Marshal(clientDTO)
 				s.socket.Send(zmq4.NewMsgFrom(client.ClientSocketId, bytes))
 			}
+			delete(s.semesters, response.Semester)
 		}
+		s.closeServerWg.Done()
 	}()
 }
 
@@ -161,6 +171,7 @@ func (s *FacultyServer) listenProgramRequests(channel chan models.SemesterReques
 		semesterPrograms, ok := s.semesters[programRequest.Semester]
 		if !ok{
 			semesterPrograms = map[uuid.UUID]models.ProgramRequest{}
+			log.Println("Saving semester: ", programRequest.Semester)
 			s.semesters[programRequest.Semester] = semesterPrograms
 		}
 		semesterPrograms[programRequest.ClientId] = programRequest
@@ -172,13 +183,10 @@ func (s *FacultyServer) listenProgramRequests(channel chan models.SemesterReques
 				Semester: programRequest.Semester,
 				Programs: semesterPrograms,
 			}
-			delete(s.semesters, programRequest.Semester)
-			//if we had a semester configured, then we end listening and we notify the client of that
+			//if we had a semester configured, then we end listening
 			if s.semester != ""{
-				close(channel)	//by closing the clients for range will notice and stop listening
-				break
+				return nil
 			}
 		}
 	}
-	return nil
 }

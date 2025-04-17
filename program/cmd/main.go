@@ -40,7 +40,7 @@ type responseStructure struct{
 func main() {
 	//check number of arguments, should be (using labels so that the order dont matter):
 	// --name=<program-name> --semester=<semester> --classrooms=<num-classrooms> --labs=<num-labs> --faculty-server=<faculty-address>
-	//	executable --name=Ingenieria-Sistemas --semester=2025-10 --classrooms=4 --labs=10 --faculty-server=127.0.0.1:6000  
+	//	executable --name=Ingenieria-Sistemas --semester=2025-10 --classrooms=4 --labs=10 --faculty-server=127.0.0.1:5000  
 	if len(os.Args) < 6{
 		log.Fatal("invalid number of arguments")
 	} 
