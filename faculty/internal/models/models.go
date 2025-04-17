@@ -45,6 +45,8 @@ type DTIProgramRequest struct{
 //RESPONSE COMMUNICATION WITH THE DTI
 type DTIResponse struct{
 	Semester 	string `json:"semester"`
+	ErrorFound 	bool 				`json:"error-found"`
+	ErrorMessage string 			`json:"error-message"`
 	Programs []DTIProgramResponse `json:"programs"`
 }
 

@@ -4,18 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
-	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/service"
+	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
 	"github.com/go-zeromq/zmq4"
 )
 
 type ZeroMqServer struct {
 	port    int
-	service service.CollegeService
+	service domain.CollegeService
 	socket  zmq4.Socket
 }
 
-func NewZeroMQServer(port int, service service.CollegeService) *ZeroMqServer {
+func NewZeroMQServer(port int, service domain.CollegeService) *ZeroMqServer {
 	return &ZeroMqServer{
 		port: port,
 		service: service,
@@ -24,6 +25,11 @@ func NewZeroMQServer(port int, service service.CollegeService) *ZeroMqServer {
 
 //principal method to start server and listen for requests
 func (s *ZeroMqServer) Listen() error {
+	//first we poblate the DB
+	if err:= s.service.PoblateFacultiesAndPrograms(); err != nil{
+		return err
+	}
+
 	//create zeromq socket and listen in the given port
 	socket := zmq4.NewRouter(context.Background())
 	s.socket = socket
@@ -31,6 +37,7 @@ func (s *ZeroMqServer) Listen() error {
 	if err := socket.Listen(fmt.Sprintf("tcp://*:%d", s.port)); err != nil {
 		return err
 	}
+	log.Print("Listening on port: ", s.port)
 	for{
 		message, err := socket.Recv()
 		//process in a seaparate new go routine the message to continue listening for new messages
@@ -48,7 +55,7 @@ func (s *ZeroMqServer) processMessage(message zmq4.Msg, err error){
 	clientIdentity := message.Frames[0]
 	//read request body
 	clientRequestBytes := message.Frames[2]
-	clientRequest := service.DTIRequestDTO{}
+	clientRequest := domain.DTIRequestDTO{}
 	if err := json.Unmarshal(clientRequestBytes, &clientRequest); err != nil{
 		return 
 	}

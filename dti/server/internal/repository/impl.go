@@ -1,7 +1,20 @@
 package repository
 
-type CollegeRepositoryPostgres struct{}
+import (
+	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
+	"gorm.io/gorm"
+)
 
-func NewCollegeRepositoryPostgres() CollegeRepository {
-	return &CollegeRepositoryPostgres{}
+type CollegeRepositoryPostgres struct{
+	db *gorm.DB
+}
+
+func NewCollegeRepositoryPostgres(db *gorm.DB) CollegeRepository {
+	return &CollegeRepositoryPostgres{
+		db: db,
+	}
+}
+
+func (r *CollegeRepositoryPostgres) CreateFaculty(faculty *domain.FacultyModel) error{
+	return r.db.Create(&faculty).Error
 }

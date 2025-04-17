@@ -74,6 +74,9 @@ func (s *FacultyServer) Listen() (chan models.SemesterRequest, *sync.WaitGroup,e
 func (s *FacultyServer) SendReplies(channel chan models.DTIResponse){
 	go func(){
 		for response := range channel{
+			if response.ErrorFound{
+				log.Printf("Error received from DTI: %s", response.ErrorMessage)
+			}
 			//get semester programs
 			semesterPrograms, ok := s.semesters[response.Semester]
 			if !ok{
@@ -86,12 +89,26 @@ func (s *FacultyServer) SendReplies(channel chan models.DTIResponse){
 					continue 
 				}
 				//transform the response into the valid dto and answer to the program
-				clientDTO := models.ProgramResponse{
-					ClientId: client.ClientId,
-					Status: clientResponse.StatusMessage,
-					ClassroomsAsigned: clientResponse.Classrooms,
-					LabsAsigned: clientResponse.Labs,
-					ErrorRequest: false,
+				var clientDTO models.ProgramResponse
+				if response.ErrorFound{
+					clientDTO = models.ProgramResponse{
+						ClientId: client.ClientId,
+						Status: response.ErrorMessage,
+						ClassroomsAsigned: 0,
+						LabsAsigned: 0,
+						ErrorRequest: true,
+					}
+				}else{
+					clientDTO = models.ProgramResponse{
+						ClientId: client.ClientId,
+						Status: clientResponse.StatusMessage,
+						ClassroomsAsigned: clientResponse.Classrooms,
+						LabsAsigned: client.Labs,
+						ErrorRequest: false,
+					}
+					if clientDTO.Status != "OK"{
+						clientDTO.ErrorRequest = true
+					}
 				}
 				bytes, _ := json.Marshal(clientDTO)
 				s.socket.Send(zmq4.NewMsgFrom(client.ClientSocketId, bytes))

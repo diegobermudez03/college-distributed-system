@@ -1,4 +1,4 @@
-package service
+package domain
 
 import "github.com/google/uuid"
 
@@ -11,7 +11,9 @@ type ServiceConfig struct {
 
 //dtos
 type DTIResponseDTO struct {
-	Semester string               `json:"semester"`
+	Semester string               	`json:"semester"`
+	ErrorFound 	bool 				`json:"error-found"`
+	ErrorMessage string 			`json:"error-message"`
 	Programs []struct{
 		ProgramId     uuid.UUID `json:"program-id"`
 		Classrooms    int       `json:"classrooms"`
@@ -34,5 +36,6 @@ type DTIRequestDTO struct{
 
 //interfaces
 type CollegeService interface {
+	PoblateFacultiesAndPrograms() error
 	ProcessRequest(request DTIRequestDTO) (*DTIResponseDTO, error)
 }
