@@ -13,5 +13,7 @@ type CollegeRepository interface {
 	GetAssignedResourcesOfSemester(semesterId uuid.UUID) (*domain.AssignedSemesterResources, error)	//if no resources must return pointer to zero struct
 	GetFullFacultyById(facultyId uuid.UUID) (*domain.FacultyModel, error)
 	GetAllFaculties() ([]domain.FacultyModel, error)
+	CreateAssignation(assignation *domain.AssignationModel) error
+	CreateAlert(alert *domain.AlertModel) error
 	//CreateProgram(program *domain.ProgramModel) error
 }

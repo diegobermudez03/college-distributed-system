@@ -28,16 +28,17 @@ type DTIProgramResponseDTO struct{
 type DTIRequestDTO struct{
 	Semester 	string `json:"semester"`
 	FacultyName string 	`json:"faculty-name"`
-	Programs []struct{
-		ProgramId 	uuid.UUID `json:"program-id"`
-		ProgramName string `json:"program-name"`
-		Classrooms  int    `json:"classrooms"`
-		Labs        int    `json:"labs"`
-	} `json:"programs"`
+	Programs []DTIProgramRequestDTO `json:"programs"`
 }
 
+type DTIProgramRequestDTO struct{
+	ProgramId 	uuid.UUID `json:"program-id"`
+	ProgramName string `json:"program-name"`
+	Classrooms  int    `json:"classrooms"`
+	Labs        int    `json:"labs"`
+}
 //interfaces
 type CollegeService interface {
 	PoblateFacultiesAndPrograms() error
-	ProcessRequest(request DTIRequestDTO) (*DTIResponseDTO, error)
+	ProcessRequest(request DTIRequestDTO, goRoutineId uuid.UUID) (*DTIResponseDTO, error)
 }

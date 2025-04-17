@@ -39,6 +39,12 @@ type AssignationModel struct{
 	Labs 		int
 	MobileLabs 	int
 	CreatedAt 	time.Time
+	GoRoutineId	uuid.UUID `gorm:"-"`
+	ProgramName string `gorm:"-"`
+	SemesterName string `gorm:"-"`
+	RemainingCLassrooms int `gorm:"-"`
+	RemainingLabs int `gorm:"-"`
+	RemainingMobileLabs int `gorm:"-"`
 }
 
 type AlertModel struct{
@@ -46,7 +52,15 @@ type AlertModel struct{
 	ProgramId 	uuid.UUID
 	SemesterId 	uuid.UUID
 	Message 	string
+	RequestedClassrooms 	int
+	RequestedLabs 		int
 	CreatedAt 	time.Time
+	GoRoutineId	uuid.UUID `gorm:"-"`
+	ProgramName string `gorm:"-"`
+	SemesterName string `gorm:"-"`
+	RemainingCLassrooms int `gorm:"-"`
+	RemainingLabs int `gorm:"-"`
+	RemainingMobileLabs int `gorm:"-"`
 }
 
 //NON DB TABLES

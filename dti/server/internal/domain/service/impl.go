@@ -2,16 +2,21 @@ package service
 
 import (
 	"errors"
+	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/repository"
+	"github.com/google/uuid"
 )
 
 const (
 	invalidProgramMsg = "INVALID-PROGRAM" 
 	invalidFacultyMsg = "INVALID-FACULTY"
+	notEnoughResourcesMsg = "NOT-ENOUGH-RESOURCES-FOR-ASSIGNMENT"
+	okMsg = "OK"
 )
 
 type ServiceCache struct{
@@ -45,7 +50,7 @@ func NewCollegeService(config *domain.ServiceConfig, repository repository.Colle
 
 //The entry method for processing a faculty request, is the main method which many go routines will execute 
 //in parallel
-func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO) (*domain.DTIResponseDTO, error) {
+func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRoutineId uuid.UUID) (*domain.DTIResponseDTO, error) {
 	s.Cache.Lock.RLock()	//lock for read, since we are reading the semester
 	semester, ok := s.Cache.Semesters[request.Semester]
 	//if the semester doesnt already exist, we have to load it into the cache
@@ -76,7 +81,7 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO) (*doma
 		programName := s.convertToBasicString(program.ProgramName)
 
 		//if the program isnt a valid faculty program, we add it as a program error
-		if _, ok := facultyPrograms[programName]; !ok{
+		if programId, ok := facultyPrograms[programName]; !ok{
 			response.Programs = append(response.Programs, domain.DTIProgramResponseDTO{
 				ProgramId: program.ProgramId,
 				Classrooms: 0,
@@ -84,29 +89,10 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO) (*doma
 				StatusMessage: invalidProgramMsg,
 			})
 			continue
+		}else{
+			//we call the method in charge of process the program request, this is where we access the shared resource and all that stuff
+			response.Programs = s.processProgramRequest(response.Programs, semester, &program, programId, goRoutineId)
 		}
-
-		//if the program is valid, then we lock the semester labs resources for the assignment
-		assignation := domain.AssignationModel{
-			SemesterId: semester.Id,
-			ProgramId: program.ProgramId,
-			Classrooms: 0,
-			Labs: 0,
-			MobileLabs: 0,
-		}
-		//we get the lock for the resources
-		semester.resourcesLock.Lock()
-		//check if with only the labs and classrooms we fulfill
-		if semester.Labs >= program.Labs && semester.Classrooms >= program.Classrooms{
-			assignation.Classrooms = program.Classrooms
-			assignation.Labs = program.Labs
-			assignation.MobileLabs = 0
-			semester.Labs -= program.Labs
-			semester.Classrooms -= program.Classrooms
-			semester.resourcesLock.Unlock()
-			s.logWriterChannel <- &assignation
-		}
-		//I LEFT HERE, CONTINUE FROM HERE, I WAS AALZING HOW TO PROCESS THIS, 
 	}
 	
 	return nil, nil
@@ -119,16 +105,97 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO) (*doma
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
+func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, semester *SemesterAvailability, programRequest *domain.DTIProgramRequestDTO, programId uuid.UUID, goRoutineId uuid.UUID) []domain.DTIProgramResponseDTO{
+	//create the response DTO struct
+	programResponse := domain.DTIProgramResponseDTO{
+		ProgramId: programRequest.ProgramId,
+	}
+
+	//LOCK THE SEMESTER RESOURCES FOR THE PROCESSING
+	semester.resourcesLock.Lock()
+
+	//with the logic below we can check all the assignation with or without mobile labs
+	mobileLabsNeeded := programRequest.Labs - semester.Labs	//if with only the availala labs is enough, this will be 0 or negative
+	if mobileLabsNeeded < 0{
+		mobileLabsNeeded = 0
+	}
+	remainingClassrooms := semester.Classrooms - mobileLabsNeeded	//if we needed no mobile labs, then this will be equals to the available classrooms
+	//if we have enough mobile labs (which implicitely checks if we have enough labs) and we have enough classrooms
+	if mobileLabsNeeded <= semester.MobileLabs && remainingClassrooms >= programRequest.Classrooms{
+		assignation := domain.AssignationModel{
+			SemesterId: semester.Id,
+			ProgramId: programId,
+			CreatedAt: time.Now(),
+			ProgramName: programRequest.ProgramName,
+			SemesterName: semester.Semester,
+			GoRoutineId: goRoutineId,
+		}
+		//add classroom asignation and update
+		assignation.Classrooms = programRequest.Classrooms
+		semester.Classrooms -= (programRequest.Classrooms + mobileLabsNeeded)
+		assignation.RemainingCLassrooms = semester.Classrooms
+		//add labs
+		assignation.Labs = programRequest.Labs
+		semester.Labs -= (programRequest.Labs)-mobileLabsNeeded
+		assignation.RemainingLabs = semester.Labs
+		//add mobile labs
+		assignation.MobileLabs = mobileLabsNeeded
+		semester.MobileLabs -= mobileLabsNeeded
+		//this is to adjust, since if we assigned normal classrooms, its possible that now we have less 
+		//classrooms than mobile labs allowed, if thats the case, we need to adjust the mobile labs to the available classrooms
+		if semester.MobileLabs > semester.Classrooms{
+			semester.MobileLabs = semester.Classrooms
+		}
+		assignation.RemainingMobileLabs = semester.MobileLabs
+		//finally we send the assignation to be logged and written in the channel
+		s.logWriterChannel <- &assignation
+
+		//update response DTO
+		programResponse.Classrooms = programRequest.Classrooms
+		programResponse.Labs = programRequest.Labs
+		programResponse.StatusMessage = okMsg
+	}else{
+		//this is the case in which we were unable to assign resources, in which case we must return an the error
+		alert := domain.AlertModel{
+			ID: uuid.New(),
+			ProgramId: programId,
+			SemesterId: semester.Id,
+			Message: notEnoughResourcesMsg,
+			CreatedAt: time.Now(),
+			ProgramName: programRequest.ProgramName,
+			SemesterName: semester.Semester,
+			GoRoutineId: goRoutineId,
+			RemainingCLassrooms: semester.Classrooms,
+			RemainingLabs: semester.Labs,
+			RemainingMobileLabs: semester.MobileLabs,
+			RequestedClassrooms: programRequest.Classrooms,
+			RequestedLabs: programRequest.Labs,
+		}
+		s.alertWriterChannel <- &alert	//send in the alert channel for queue of alerts and logging
+
+		//update response DTO
+		programResponse.Classrooms = 0
+		programResponse.Labs = 0
+		programResponse.StatusMessage = notEnoughResourcesMsg
+	}
+	//UNLOCK THE LOCK, THE STRATEGY IS TO LOCK FOR EACH PROGRAM, SO WHILE WE DO THE ITERATION OTHER PROGRAM CAN BE PROCESSED
+	semester.resourcesLock.Unlock() 
+
+	//now we simply add the program response to the slice and return it, this part is not locking since we already liberated the lock
+	programs = append(programs, programResponse)
+	return programs
+}
+
+
+
 func (s *CollegeServiceImpl) loadSemester(semester string)(*SemesterAvailability, error){
 	s.Cache.Lock.Lock()	//compltely lock, Write lock, so that we are able to write and avoid other
 	//go gourintes which also notice that they had to load the semester to reload it after already loaded
 	defer s.Cache.Lock.Unlock()	//defer so that its executed in any possible case
-
 	//just in case, if perhaps we were ordered to load the semester, but that was while other go routine was already creating it
 	if semester, ok := s.Cache.Semesters[semester]; ok{
 		return semester, nil
 	}
-
 	//check if the semester exists in DB
 	semesterModel, err := s.repository.GetSemester(semester)
 	if err != nil{
@@ -164,7 +231,7 @@ func (s *CollegeServiceImpl) loadSemester(semester string)(*SemesterAvailability
 }
 
 //method that checks if a faculty exists, and if it those, then it returns the faculty programs
-func (s *CollegeServiceImpl) getFacultyPrograms(facultyName string) (map[string]bool, error){
+func (s *CollegeServiceImpl) getFacultyPrograms(facultyName string) (map[string]uuid.UUID, error){
 	//we will get the information of the faculty from the request, so that we can valiate the programs
 	faculties, err := s.repository.GetAllFaculties()
 	if err != nil{
@@ -187,9 +254,9 @@ func (s *CollegeServiceImpl) getFacultyPrograms(facultyName string) (map[string]
 		return nil, err
 	}
 	//we store the faculty programs names in a set like map, so that we can easily check if a request program is valid or not
-	facultyPrograms := make(map[string]bool)
+	facultyPrograms := make(map[string]uuid.UUID)
 	for _, program := range faculty.Programs{
-		facultyPrograms[s.convertToBasicString(program.Name)] = true
+		facultyPrograms[s.convertToBasicString(program.Name)] = program.ID
 	}
 	return facultyPrograms, nil
 }
@@ -201,7 +268,13 @@ func (s *CollegeServiceImpl) startDbLogWriter()chan *domain.AssignationModel{
 	channel := make(chan *domain.AssignationModel)
 	go func(){
 		for message := range channel{
-
+			//log what we just did
+			log.Printf("ASSIGNED BY GO ROUTINE: %v PROGRAM: %v SEMESTER: %v CLASSROOMS: %d LABS: %d MOBILE LABS: %d: REMAINING RESOURCES OF SEMESTER C:%d L:%d ML:%d",
+				message.GoRoutineId,message.ProgramName,message.SemesterName,message.Classrooms,message.Labs,message.MobileLabs,message.RemainingCLassrooms,
+				message.RemainingLabs,message.RemainingMobileLabs,
+			)
+			//save to db, blocking operation, however this is our purpose, to be the go routine blocked so the main ones are not
+			s.repository.CreateAssignation(message)
 		}
 	}()
 	return channel
@@ -213,7 +286,13 @@ func (s *CollegeServiceImpl) startDbAlertWriter()chan *domain.AlertModel{
 	channel := make(chan *domain.AlertModel)
 	go func(){
 		for message := range channel{
-
+			//log what we just did
+			log.Printf("XXXXX-ALERT BY GO ROUTINE: %v PROGRAM: %v SEMESTER: %v CLASSROOMS: %d LABS: %d AVILABLE RESOURCES OF SEMESTER C:%d L:%d ML:%d",
+				message.GoRoutineId,message.ProgramName,message.SemesterName,message.RemainingCLassrooms,message.RemainingLabs,message.RemainingCLassrooms,
+				message.RemainingLabs,message.RemainingMobileLabs,
+			)
+			//save to db, blocking operation, however this is our purpose, to be the go routine blocked so the main ones are not
+			s.repository.CreateAlert(message)
 		}
 	}()
 	return channel
