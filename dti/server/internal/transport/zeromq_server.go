@@ -69,9 +69,7 @@ func (s *ZeroMqServer) processMessage(message zmq4.Msg, err error){
 
 	//process message with the service
 	response, err := s.service.ProcessRequest(clientRequest, goRoutineId)
-	log.Println("In transport we got rsponse: ", response)
 	if err != nil{
-		log.Println("transport received an error: ", err.Error())
 		//if there was an error, we send it in the authorized format
 		errorResponse := domain.DTIResponseDTO{
 			Semester: clientRequest.Semester,
@@ -84,6 +82,5 @@ func (s *ZeroMqServer) processMessage(message zmq4.Msg, err error){
 	}
 	//send response to the spceified client
 	responseBytes, _ := json.Marshal(response)
-	log.Println("Sending response to faculty")
 	s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes))
 }

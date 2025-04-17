@@ -78,15 +78,12 @@ func (s *FacultyServer) SendReplies(channel chan models.DTIResponse){
 	s.closeServerWg.Add(1)
 	go func(){
 		for response := range channel{
-			log.Println("Processing DTI response")
 			if response.ErrorFound{
 				log.Printf("Error received from DTI: %s", response.ErrorMessage)
 			}
 			//get semester programs
 			semesterPrograms, ok := s.semesters[response.Semester]
-			log.Println("Looking for semester: ", response.Semester)
 			if !ok{
-				log.Println("DIDNT FIND SEMESTER PROGRAMS")
 				continue
 			}
 			//iterate over all responses, get the socket ID for each one, and then send the JSON response
@@ -171,7 +168,6 @@ func (s *FacultyServer) listenProgramRequests(channel chan models.SemesterReques
 		semesterPrograms, ok := s.semesters[programRequest.Semester]
 		if !ok{
 			semesterPrograms = map[uuid.UUID]models.ProgramRequest{}
-			log.Println("Saving semester: ", programRequest.Semester)
 			s.semesters[programRequest.Semester] = semesterPrograms
 		}
 		semesterPrograms[programRequest.ClientId] = programRequest

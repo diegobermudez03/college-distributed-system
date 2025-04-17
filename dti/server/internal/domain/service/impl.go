@@ -69,7 +69,6 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 	if err != nil{
 		return nil, err
 	}
-	log.Println("We got the faculty programs ", facultyPrograms)
 	//base struct for response
 	response := new(domain.DTIResponseDTO)
 	*response = domain.DTIResponseDTO{
@@ -78,14 +77,12 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 		ErrorMessage: "",
 		Programs: make([]domain.DTIProgramResponseDTO, 0),
 	}
-	log.Println("We are goiing to iterate over the program requsts")
 	//now that we are sure that we have the semester info, we iterate over the faculty request programs
 	for _, program := range request.Programs{
 		programName := s.convertToBasicString(program.ProgramName)
 
 		//if the program isnt a valid faculty program, we add it as a program error
 		if programId, ok := facultyPrograms[programName]; !ok{
-			log.Println("The program is invalid")
 			response.Programs = append(response.Programs, domain.DTIProgramResponseDTO{
 				ProgramId: program.ProgramId,
 				Classrooms: 0,
@@ -112,6 +109,7 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, semester *SemesterAvailability, programRequest *domain.DTIProgramRequestDTO, programId uuid.UUID, goRoutineId uuid.UUID) []domain.DTIProgramResponseDTO{
 	//check if we already have an assignation for this program for this semester, if we have, then we send the erroe
 	if ass, _ := s.repository.GetProgramAssignment(programId, semester.Id); ass != nil{
+		log.Printf("Program %s in semester %s already had assignation", programRequest.ProgramName, semester.Semester)
 		programs = append(programs, domain.DTIProgramResponseDTO{
 			ProgramId: programRequest.ProgramId,
 			Classrooms: 0,
@@ -181,11 +179,11 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 			ProgramName: programRequest.ProgramName,
 			SemesterName: semester.Semester,
 			GoRoutineId: goRoutineId,
-			RemainingCLassrooms: semester.Classrooms,
-			RemainingLabs: semester.Labs,
-			RemainingMobileLabs: semester.MobileLabs,
 			RequestedClassrooms: programRequest.Classrooms,
 			RequestedLabs: programRequest.Labs,
+			AvailableClassrooms: semester.Classrooms,
+			AvailableLabs: semester.Labs,
+			AvailableMobileLabs: semester.MobileLabs,
 		}
 		s.alertWriterChannel <- &alert	//send in the alert channel for queue of alerts and logging
 
@@ -267,7 +265,6 @@ func (s *CollegeServiceImpl) getFacultyPrograms(facultyName string) (map[string]
 	}
 	//we now read the full faculty with its programs
 	faculty, err = s.repository.GetFullFacultyById(faculty.ID)
-	log.Println("FULL FACULTY ", faculty)
 	if err != nil{
 		return nil, err
 	}
@@ -306,8 +303,8 @@ func (s *CollegeServiceImpl) startDbAlertWriter()chan *domain.AlertModel{
 		for message := range channel{
 			//log what we just did
 			log.Printf("XXXXX-ALERT BY GO ROUTINE: %v PROGRAM: %v SEMESTER: %v CLASSROOMS: %d LABS: %d AVILABLE RESOURCES OF SEMESTER C:%d L:%d ML:%d",
-				message.GoRoutineId,message.ProgramName,message.SemesterName,message.RemainingCLassrooms,message.RemainingLabs,message.RemainingCLassrooms,
-				message.RemainingLabs,message.RemainingMobileLabs,
+				message.GoRoutineId,message.ProgramName,message.SemesterName,message.RequestedClassrooms,message.RequestedLabs,message.AvailableClassrooms,
+				message.AvailableLabs,message.AvailableMobileLabs,
 			)
 			//save to db, blocking operation, however this is our purpose, to be the go routine blocked so the main ones are not
 			s.repository.CreateAlert(message)

@@ -55,12 +55,12 @@ type AlertModel struct{
 	RequestedClassrooms 	int
 	RequestedLabs 		int
 	CreatedAt 	time.Time
+	AvailableClassrooms 	int
+	AvailableLabs 		int
+	AvailableMobileLabs 	int
 	GoRoutineId	uuid.UUID `gorm:"-"`
 	ProgramName string `gorm:"-"`
 	SemesterName string `gorm:"-"`
-	RemainingCLassrooms int `gorm:"-"`
-	RemainingLabs int `gorm:"-"`
-	RemainingMobileLabs int `gorm:"-"`
 }
 
 //NON DB TABLES

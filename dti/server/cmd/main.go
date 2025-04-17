@@ -21,6 +21,7 @@ const (
 )
 
 func main() {
+	log.SetFlags(log.Ltime | log.Lmicroseconds)
 	//input structure
 	// --port=<port-number> --classrooms=<number-of-available-classrooms> --labs=<number-of-available-labs> --mobile-labs=<max-number-of-mobile-labs>
 	//executable --port=6000 --classrooms=360 --labs=200 --mobile-labs=50
@@ -40,7 +41,7 @@ func main() {
 		}
 		parts := strings.Split(arg, "=")
 		//all arguments are numeric, so we convert any argument to number, if it wasnt a nmber, ignore it
-		number, err := strconv.Atoi(parts[2])
+		number, err := strconv.Atoi(parts[1])
 		if err != nil{
 			continue
 		}

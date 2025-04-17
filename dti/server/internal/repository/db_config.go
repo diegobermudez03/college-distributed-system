@@ -6,6 +6,7 @@ import (
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type PostgresConfig struct {
@@ -22,7 +23,7 @@ func OpenPostgresDb(config PostgresConfig) (*gorm.DB,error) {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
 		config.Host, config.Port, config.User, config.Password, config.DbName, config.SslMode, config.Timezone)
 	//open db
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil{
 		return nil, err 
 	}

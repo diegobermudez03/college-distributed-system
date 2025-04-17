@@ -54,7 +54,6 @@ func (c *FacultyClient) SendRequests(channel chan  models.SemesterRequest) error
 			err = errUnableToConnectToDTI
 		}
 		defer socket.Close()
-		defer log.Println("closing socket")
 		c.socket = socket
 		wg.Done()
 		//we go listen for the requests
@@ -75,15 +74,13 @@ func (c *FacultyClient) ListenResponses(wg *sync.WaitGroup, listenerChannel chan
 			//receive dti response
 			allocation, err := c.socket.Recv()
 			if err != nil{
-				//log.Print(err.Error())
 				continue
 			}
-			log.Println("Received message from DTI")
 			dtiResponse := models.DTIResponse{}
 			if errr := json.Unmarshal(allocation.Bytes(), &dtiResponse); errr != nil{
 				continue
 			}
-			log.Println("Message content: ", dtiResponse, " Sending ACK")
+			log.Printf("Received DTI response for semester %s", dtiResponse.Semester)
 			//send accept message with the specified semester
 			acceptMsg := fmt.Sprintf("%s-%s", acceptMessage, dtiResponse.Semester)
 			c.socket.Send(zmq4.NewMsgString(acceptMsg))
@@ -91,7 +88,6 @@ func (c *FacultyClient) ListenResponses(wg *sync.WaitGroup, listenerChannel chan
 			channel <- dtiResponse
 			//if we had a specified semester, then after this semester we simply close the channel
 			if c.semester != ""{
-				log.Println("We had a semester configured, proceding to shut down")
 				close(channel)
 				close(listenerChannel)
 				wg.Done()
@@ -132,9 +128,8 @@ func (c *FacultyClient) sendFacultyRequest(channel chan models.SemesterRequest) 
 		requestBytes, _ := json.Marshal(dtiRequest)
 
 		//send request to the DTI
-		log.Println("Sending request to DTI")
+		log.Printf("Sending semester %s request to DTI", request.Semester)
 		if err := c.socket.Send(zmq4.NewMsgFrom(requestBytes)); err != nil{
-			log.Println("Error sending request to DTI ", err.Error())
 			return err
 		}
 	}
