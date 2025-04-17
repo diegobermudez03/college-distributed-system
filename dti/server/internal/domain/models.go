@@ -48,3 +48,10 @@ type AlertModel struct{
 	Message 	string
 	CreatedAt 	time.Time
 }
+
+//NON DB TABLES
+type AssignedSemesterResources struct{
+	Classrooms 	int
+	Labs 		int 
+	MobileLabs 	int
+}

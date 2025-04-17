@@ -1,12 +1,22 @@
 package service
 
 import (
+	"errors"
+
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
 	"github.com/google/uuid"
 )
 
 //poblates the db with the valid faculties and programs, and their relations
 func (s *CollegeServiceImpl) PoblateFacultiesAndPrograms() error {
+	count, err := s.repository.GetFacultiesCount()
+	if err != nil{
+		return errors.New("error initializing db")
+	}
+	if count > 0{
+		return nil
+	}
+
 	//faculty of ciencias sociales
 	socialsFaculty := domain.FacultyModel{
 		ID:   uuid.New(),

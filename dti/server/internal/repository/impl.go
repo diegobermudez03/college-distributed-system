@@ -18,3 +18,9 @@ func NewCollegeRepositoryPostgres(db *gorm.DB) CollegeRepository {
 func (r *CollegeRepositoryPostgres) CreateFaculty(faculty *domain.FacultyModel) error{
 	return r.db.Create(&faculty).Error
 }
+
+func (r *CollegeRepositoryPostgres) GetFacultiesCount() (int, error){
+	var count int64
+	err := r.db.Model(&domain.FacultyModel{}).Count(&count).Error
+	return int(count), err
+}

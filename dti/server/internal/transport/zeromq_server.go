@@ -54,6 +54,10 @@ func (s *ZeroMqServer) processMessage(message zmq4.Msg, err error){
 	}
 	clientIdentity := message.Frames[0]
 	//read request body
+	//if the message is of acceptance, then we ignore
+	if string(message.Frames[2]) == "ACCEPT"{
+		return 
+	}
 	clientRequestBytes := message.Frames[2]
 	clientRequest := domain.DTIRequestDTO{}
 	if err := json.Unmarshal(clientRequestBytes, &clientRequest); err != nil{
@@ -63,6 +67,14 @@ func (s *ZeroMqServer) processMessage(message zmq4.Msg, err error){
 	//process message with the service
 	response, err := s.service.ProcessRequest(clientRequest)
 	if err != nil{
+		//if there was an error, we send it in the authorized format
+		errorResponse := domain.DTIResponseDTO{
+			Semester: clientRequest.Semester,
+			ErrorFound: true,
+			ErrorMessage: err.Error(),
+		}
+		responseBytes, _ := json.Marshal(errorResponse)
+		s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes))
 		return
 	}
 	//send response to the spceified client

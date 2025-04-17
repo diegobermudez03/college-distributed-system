@@ -14,12 +14,14 @@ type DTIResponseDTO struct {
 	Semester string               	`json:"semester"`
 	ErrorFound 	bool 				`json:"error-found"`
 	ErrorMessage string 			`json:"error-message"`
-	Programs []struct{
-		ProgramId     uuid.UUID `json:"program-id"`
-		Classrooms    int       `json:"classrooms"`
-		Labs          int       `json:"labs"`
-		StatusMessage string    `json:"status-message"`
-	} `json:"programs"`
+	Programs []DTIProgramResponseDTO `json:"programs"`
+}
+
+type DTIProgramResponseDTO struct{
+	ProgramId     uuid.UUID `json:"program-id"`
+	Classrooms    int       `json:"classrooms"`
+	Labs          int       `json:"labs"`
+	StatusMessage string    `json:"status-message"`
 }
 
 

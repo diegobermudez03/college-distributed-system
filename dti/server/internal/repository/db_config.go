@@ -27,8 +27,8 @@ func OpenPostgresDb(config PostgresConfig) (*gorm.DB,error) {
 		return nil, err 
 	}
 	//clean db just in case, each server execution creates a new db
-	db.Exec(`DROP SCHEMA public CASCADE;`)
-	db.Exec(`CREATE SCHEMA public;`)
+	//db.Exec(`DROP SCHEMA public CASCADE;`)
+	//db.Exec(`CREATE SCHEMA public;`)
 
 	//migrate db, which means, create tables
 	err = db.AutoMigrate(&domain.SemesterAvailabilityModel{}, &domain.FacultyModel{}, 
