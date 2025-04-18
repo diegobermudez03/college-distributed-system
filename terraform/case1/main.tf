@@ -4,9 +4,7 @@ terraform{
         source = "hashicorp/google"
       }
     }
-    backend "gcs" {
-        bucket = "ds-2025-10-terraform"
-        prefix = "terraform/state"
+    backend "local" {
     }
 }
 
@@ -30,8 +28,8 @@ module "vpc"{
 ##create db vm host
 module "db"{
     source = "./db_vm"
-    vm_name = "db_vm"
-    script_name = module.buckets.db_script_name
+    vm_name = "db-vm"
+    script_name = module.buckets.docker_compose_name
     subnetwork_name = module.vpc.west_subnet
     network_name = module.vpc.network_name
     zone_name = "us-west1-a"
@@ -41,7 +39,7 @@ module "db"{
 ##create vm for dti
 module "dti"{
     source = "./vm"
-    vm_name = "dti_vm"
+    vm_name = "dti-vm"
     subnetwork_name = module.vpc.west_subnet
     network_name = module.vpc.network_name
     zone_name = "us-west1-a"
@@ -53,10 +51,10 @@ module "dti"{
 ##create vm for faculties
 module "faculties"{
     source = "./vm"
-    vm_name = "faculties_vm"
+    vm_name = "faculties-vm"
     subnetwork_name = module.vpc.east_subnet
     network_name = module.vpc.network_name
-    zone_name = "us-east1-a"
+    zone_name = "us-east1-b"
     program_exe_object_name = module.buckets.faculty_exe_obj_name
     script_name = module.buckets.faculty_script_name
     variables_export = "export DTI_ADDRESS=${module.dti.ip_address}"
@@ -66,7 +64,7 @@ module "faculties"{
 ##create vm for programs
 module "programs"{
     source = "./vm"
-    vm_name = "programs_vm"
+    vm_name = "programs-vm"
     subnetwork_name = module.vpc.central_subnet
     network_name = module.vpc.network_name
     zone_name = "us-central1-a"

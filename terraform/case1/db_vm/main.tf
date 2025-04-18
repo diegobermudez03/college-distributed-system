@@ -38,7 +38,7 @@ resource "google_compute_instance" "program_vm"{
         systemctl enable docker
         systemctl start docker
       apt-get install -y google-cloud-sdk
-      gcloud storage cp gs://${var.script_name} /home/${USER}/
+      gcloud storage cp gs://${var.script_name} /
       docker compose up -d
     EOF
 }

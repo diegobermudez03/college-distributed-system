@@ -23,13 +23,13 @@ resource "google_storage_bucket_object" "server_exe" {
 resource "google_storage_bucket_object" "faculty_exe" {
   name   = "fac"
   bucket = google_storage_bucket.executables.name
-  source = "../../dti/faculty/bin/fac"
+  source = "../../faculty/bin/fac"
 }
 
 resource "google_storage_bucket_object" "program_exe" {
   name   = "program"
   bucket = google_storage_bucket.executables.name
-  source = "../../dti/program/bin/program"
+  source = "../../program/bin/program"
 }
 
 #load scripts

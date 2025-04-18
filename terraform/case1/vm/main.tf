@@ -15,9 +15,9 @@ resource "google_compute_instance" "program_vm"{
       #!/bin/bash
       apt-get update
       apt-get install -y google-cloud-sdk
-      gcloud storage cp gs://${var.program_exe_object_name} /home/${USER}/program_exe
-      chmod +x /home/${USER}/program_exe
-      gcloud storage cp gs://${var.script_name} /home/${USER}/
+      gcloud storage cp gs://${var.program_exe_object_name} /
+      chmod +x /program_exe
+      gcloud storage cp gs://${var.script_name} /
       ${var.variables_export}
     EOF
 }
