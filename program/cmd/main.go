@@ -20,6 +20,9 @@ const (
 	classroomsArg = "--classrooms"
 	labsArg = "--labs"
 	facultyServerArg = "--faculty-server"
+
+	//already assigned message from dti, so that if is this we dont store file
+	AlreadyHasAssignation = "PROGRAM-ALREADY-HAS-RESOURCES-FOR-SEMESTER"
 )
 
 //models for request response processing
@@ -34,6 +37,7 @@ type responseStructure struct{
 	Status string `json:"status"`
 	ClassroomsAsigned int `json:"classrooms-assigned"`
 	LabsAsigned int `json:"labs-assigned"`
+	MobileLabsAssigned int `json:"mobile-labs-assigned"`
 	ErrorRequest bool 		`json:"error-request"`
 }
 
@@ -105,24 +109,40 @@ func main() {
 		log.Fatal("Invalid response received ", err.Error())
 	}
 
-	//if we received an error then we simply print the error and stop
+
+	//write result in file 
+	var txtMessage string 
+
+	//if we received an error then we print it and store it in the txt string
 	if responseJson.ErrorRequest{
-		log.Fatal("Error received from faculty ", responseJson.Status)
-		return
+		log.Print("Error received from faculty ", responseJson.Status)
+		txtMessage = fmt.Sprintf("ERROR IN ASSIGNMENT: " + responseJson.Status)
+		//if the error is that we already have assignation then we simply return and avoid touching the txt
+		if AlreadyHasAssignation == responseJson.Status{
+			return
+		}
+	}else{
+		//print result 
+		log.Printf("Received %s, %d classrooms expected: %d received.  %d labs expected: %d received.",
+		responseJson.Status, *request.Classrooms, responseJson.ClassroomsAsigned, 
+		*request.Labs, responseJson.LabsAsigned)
+		txtMessage = fmt.Sprintf(`
+		Program %s in SEMESTER: % s
+		REQUESTED CLASSROOMS: %d
+		REQUESTED LABS: %d
+		ASSIGNED CLASSROOMS: %d
+		ASSIGNED LABS: %d
+		HOW MANY OF THE LABS ARE MOBILE LABS (CLASSROOMS WITH PC'S): %d
+		`, request.ProgramName, request.Semester, *request.Classrooms, *request.Labs,
+		responseJson.ClassroomsAsigned, responseJson.LabsAsigned, responseJson.MobileLabsAssigned)
 	}
 
-	//print result 
-	log.Printf("Received %s, %d classrooms expected: %d received.  %d labs expected: %d received.",
-		 responseJson.Status, *request.Classrooms, responseJson.ClassroomsAsigned, 
-		 *request.Labs, responseJson.LabsAsigned,
-	)
-
-	//store result in a file
+	//create file and store message
 	file, err := os.Create(fmt.Sprintf("%s_%s.txt", request.ProgramName, request.Semester))
 	if err != nil{
 		log.Print("Unable to write file", err.Error())
 	}
 	defer file.Close()
-	file.Write(response.Bytes())
+	file.Write([]byte(txtMessage))
 
 }

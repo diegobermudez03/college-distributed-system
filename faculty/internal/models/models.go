@@ -14,6 +14,7 @@ type ProgramResponse struct {
 	Status            string `json:"status"`
 	ClassroomsAsigned int    `json:"classrooms-assigned"`
 	LabsAsigned       int    `json:"labs-assigned"`
+	MobileLabsAssigned int 	 `json:"mobile-labs-assigned"`
 	ErrorRequest 	  bool 		`json:"error-request"`
 }
 
@@ -54,5 +55,6 @@ type DTIProgramResponse struct{
 	ProgramId 	uuid.UUID 	`json:"program-id"`
 	Classrooms 	int `json:"classrooms"`
 	Labs 		int `json:"labs"`
+	MobileLabs    int       `json:"mobile-labs"`
 	StatusMessage string `json:"status-message"`
 }

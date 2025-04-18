@@ -101,6 +101,7 @@ func (s *FacultyServer) SendReplies(channel chan models.DTIResponse){
 						Status: response.ErrorMessage,
 						ClassroomsAsigned: 0,
 						LabsAsigned: 0,
+						MobileLabsAssigned: 0,
 						ErrorRequest: true,
 					}
 				}else{
@@ -109,6 +110,7 @@ func (s *FacultyServer) SendReplies(channel chan models.DTIResponse){
 						Status: clientResponse.StatusMessage,
 						ClassroomsAsigned: clientResponse.Classrooms,
 						LabsAsigned: client.Labs,
+						MobileLabsAssigned: clientResponse.MobileLabs,
 						ErrorRequest: false,
 					}
 					if clientDTO.Status != "OK"{

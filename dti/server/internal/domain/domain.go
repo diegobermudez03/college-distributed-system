@@ -2,6 +2,16 @@ package domain
 
 import "github.com/google/uuid"
 
+//status messages
+const (
+	InvalidProgramMsg = "INVALID-PROGRAM" 
+	InvalidFacultyMsg = "INVALID-FACULTY"
+	NotEnoughResourcesMsg = "NOT-ENOUGH-RESOURCES-FOR-ASSIGNMENT"
+	AlreadyHaveAssignation = "PROGRAM-ALREADY-HAS-RESOURCES-FOR-SEMESTER"
+	OkMsg = "OK"
+)
+
+
 //models
 type ServiceConfig struct {
 	Classrooms int
@@ -21,6 +31,7 @@ type DTIProgramResponseDTO struct{
 	ProgramId     uuid.UUID `json:"program-id"`
 	Classrooms    int       `json:"classrooms"`
 	Labs          int       `json:"labs"`
+	MobileLabs    int       `json:"mobile-labs"`
 	StatusMessage string    `json:"status-message"`
 }
 
@@ -40,5 +51,5 @@ type DTIProgramRequestDTO struct{
 //interfaces
 type CollegeService interface {
 	PoblateFacultiesAndPrograms() error
-	ProcessRequest(request DTIRequestDTO, goRoutineId uuid.UUID) (*DTIResponseDTO, error)
+	ProcessRequest(request DTIRequestDTO, goRoutineId int) (*DTIResponseDTO, error)
 }

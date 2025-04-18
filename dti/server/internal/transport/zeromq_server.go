@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
 	"github.com/go-zeromq/zmq4"
-	"github.com/google/uuid"
 )
 
 type ZeroMqServer struct {
@@ -50,7 +50,7 @@ func (s *ZeroMqServer) Listen() error {
 //internal method to process each request message, it validates the message and communicates with the service
 func (s *ZeroMqServer) processMessage(message zmq4.Msg, err error){
 	//create a goroutine ID, to identify this go routine
-	goRoutineId := uuid.New()
+	goRoutineId := rand.Intn(90000) + 10000
 	//if there was an error with the mesage we ignore it then
 	if err != nil{
 		return 

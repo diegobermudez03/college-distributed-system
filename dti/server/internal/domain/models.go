@@ -39,7 +39,7 @@ type AssignationModel struct{
 	Labs 		int
 	MobileLabs 	int
 	CreatedAt 	time.Time
-	GoRoutineId	uuid.UUID `gorm:"-"`
+	GoRoutineId	int `gorm:"-"`
 	ProgramName string `gorm:"-"`
 	SemesterName string `gorm:"-"`
 	RemainingCLassrooms int `gorm:"-"`
@@ -58,7 +58,7 @@ type AlertModel struct{
 	AvailableClassrooms 	int
 	AvailableLabs 		int
 	AvailableMobileLabs 	int
-	GoRoutineId	uuid.UUID `gorm:"-"`
+	GoRoutineId	int `gorm:"-"`
 	ProgramName string `gorm:"-"`
 	SemesterName string `gorm:"-"`
 }

@@ -12,14 +12,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	invalidProgramMsg = "INVALID-PROGRAM" 
-	invalidFacultyMsg = "INVALID-FACULTY"
-	notEnoughResourcesMsg = "NOT-ENOUGH-RESOURCES-FOR-ASSIGNMENT"
-	alreadyHaveAssignation = "PROGRAM-ALREADY-HAS-RESOURCES-FOR-SEMESTER"
-	okMsg = "OK"
-)
-
 type ServiceCache struct{
 	Lock 		*sync.RWMutex //lock for retrieving the semester info, is Read Write since it depends on if we are reading or writing
 	Semesters 	map[string]*SemesterAvailability
@@ -51,7 +43,7 @@ func NewCollegeService(config *domain.ServiceConfig, repository repository.Colle
 
 //The entry method for processing a faculty request, is the main method which many go routines will execute 
 //in parallel
-func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRoutineId uuid.UUID) (*domain.DTIResponseDTO, error) {
+func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRoutineId int) (*domain.DTIResponseDTO, error) {
 	s.Cache.Lock.RLock()	//lock for read, since we are reading the semester
 	semester, ok := s.Cache.Semesters[request.Semester]
 	//if the semester doesnt already exist, we have to load it into the cache
@@ -87,7 +79,8 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 				ProgramId: program.ProgramId,
 				Classrooms: 0,
 				Labs: 0,
-				StatusMessage: invalidProgramMsg,
+				MobileLabs: 0,
+				StatusMessage: domain.InvalidProgramMsg,
 			})
 			continue
 		}else{
@@ -106,7 +99,7 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, semester *SemesterAvailability, programRequest *domain.DTIProgramRequestDTO, programId uuid.UUID, goRoutineId uuid.UUID) []domain.DTIProgramResponseDTO{
+func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, semester *SemesterAvailability, programRequest *domain.DTIProgramRequestDTO, programId uuid.UUID, goRoutineId int) []domain.DTIProgramResponseDTO{
 	//check if we already have an assignation for this program for this semester, if we have, then we send the erroe
 	if ass, _ := s.repository.GetProgramAssignment(programId, semester.Id); ass != nil{
 		log.Printf("Program %s in semester %s already had assignation", programRequest.ProgramName, semester.Semester)
@@ -114,7 +107,8 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 			ProgramId: programRequest.ProgramId,
 			Classrooms: 0,
 			Labs: 0,
-			StatusMessage: alreadyHaveAssignation,
+			MobileLabs: 0,
+			StatusMessage: domain.AlreadyHaveAssignation,
 		})
 		return programs
 	}
@@ -167,14 +161,15 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 		//update response DTO
 		programResponse.Classrooms = programRequest.Classrooms
 		programResponse.Labs = programRequest.Labs
-		programResponse.StatusMessage = okMsg
+		programResponse.StatusMessage = domain.OkMsg
+		programResponse.MobileLabs = mobileLabsNeeded
 	}else{
 		//this is the case in which we were unable to assign resources, in which case we must return an the error
 		alert := domain.AlertModel{
 			ID: uuid.New(),
 			ProgramId: programId,
 			SemesterId: semester.Id,
-			Message: notEnoughResourcesMsg,
+			Message: domain.NotEnoughResourcesMsg,
 			CreatedAt: time.Now(),
 			ProgramName: programRequest.ProgramName,
 			SemesterName: semester.Semester,
@@ -190,7 +185,8 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 		//update response DTO
 		programResponse.Classrooms = 0
 		programResponse.Labs = 0
-		programResponse.StatusMessage = notEnoughResourcesMsg
+		programResponse.MobileLabs = 0
+		programResponse.StatusMessage = domain.NotEnoughResourcesMsg
 	}
 	//UNLOCK THE LOCK, THE STRATEGY IS TO LOCK FOR EACH PROGRAM, SO WHILE WE DO THE ITERATION OTHER PROGRAM CAN BE PROCESSED
 	semester.resourcesLock.Unlock() 
@@ -261,7 +257,7 @@ func (s *CollegeServiceImpl) getFacultyPrograms(facultyName string) (map[string]
 	}
 	//if faculty is still nil, means that the faculty is invalid
 	if faculty == nil{
-		return nil, errors.New(invalidFacultyMsg)
+		return nil, errors.New(domain.InvalidFacultyMsg)
 	}
 	//we now read the full faculty with its programs
 	faculty, err = s.repository.GetFullFacultyById(faculty.ID)

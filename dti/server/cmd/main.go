@@ -55,7 +55,7 @@ func main() {
 
 	//check that number of mobile labs is at much the same as classrooms
 	if config.MobileLabs > config.Classrooms{
-		log.Fatal("Mobile labs cant be more than number of classrooms")
+		config.MobileLabs = config.Classrooms
 	}
 
 	//get env variables and read them (if they are not already loaded, we load them from the .env file)
