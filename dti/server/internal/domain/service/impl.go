@@ -105,10 +105,10 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 		log.Printf("Program %s in semester %s already had assignation", programRequest.ProgramName, semester.Semester)
 		programs = append(programs, domain.DTIProgramResponseDTO{
 			ProgramId: programRequest.ProgramId,
-			Classrooms: 0,
-			Labs: 0,
-			MobileLabs: 0,
-			StatusMessage: domain.AlreadyHaveAssignation,
+			Classrooms: ass.Classrooms,
+			Labs: ass.Labs,
+			MobileLabs: ass.MobileLabs,
+			StatusMessage: domain.OkMsg,
 		})
 		return programs
 	}

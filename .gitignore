@@ -6,3 +6,4 @@
 ./terraform/.terraform/*
 */terraform-provider-*
 */terraform-provider-google_v6.30.0_x5
+*.terraform.*
