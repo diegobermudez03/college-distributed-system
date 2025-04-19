@@ -1,0 +1,1 @@
+{"Modules":[{"Key":"","Source":"","Dir":"."},{"Key":"buckets","Source":"./bucket","Dir":"bucket"},{"Key":"db","Source":"./db_vm","Dir":"db_vm"},{"Key":"dti","Source":"./vm","Dir":"vm"},{"Key":"faculties","Source":"./vm","Dir":"vm"},{"Key":"programs","Source":"./vm","Dir":"vm"},{"Key":"vpc","Source":"./vpc","Dir":"vpc"}]}
