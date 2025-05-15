@@ -12,50 +12,59 @@ import (
 	"github.com/google/uuid"
 )
 
-type ServiceCache struct{
-	Lock 		*sync.RWMutex //lock for retrieving the semester info, is Read Write since it depends on if we are reading or writing
-	Semesters 	map[string]*SemesterAvailability
-}
 
 type CollegeServiceImpl struct {
-	config     *domain.ServiceConfig
 	repository 	repository.CollegeRepository
-	Cache 		ServiceCache
+	Lock 		*sync.RWMutex //lock for retrieving the semester info, is Read Write since it depends on if we are reading or writing
+	Semester 	domain.SemesterAvailabilityModel
 	logWriterChannel chan *domain.AssignationModel
 	alertWriterChannel chan *domain.AlertModel
 }
 
-func NewCollegeService(config *domain.ServiceConfig, repository repository.CollegeRepository) domain.CollegeService {
-	service := &CollegeServiceImpl{
-		config: config,
-		repository: repository,
-		Cache: ServiceCache{
-			Semesters: make(map[string]*SemesterAvailability),
-			Lock: &sync.RWMutex{},
-		},
+func NewCollegeService(config *domain.ServiceConfig, repository repository.CollegeRepository) (domain.CollegeService, error) {
+	//validate if semester already was processed
+	sem, err := repository.GetSemester(config.Semester)
+	if err != nil{
+		return nil, domain.ErrorStartingService
 	}
+	if sem != nil{
+		return nil, domain.ErrorSemesterWasAlreadyProcessed
+	}
+
+	//register semester in db
+	semester := domain.SemesterAvailabilityModel{
+		ID: uuid.New(),
+		Semester: config.Semester,
+		Classrooms: config.Classrooms,
+		Labs: config.Labs,
+		MobileLabs: config.MobileLabs,
+	}
+	if err := repository.CreateSemester(&semester); err != nil{
+		return nil, domain.ErrorStartingService
+	}
+	//create service
+	service := &CollegeServiceImpl{
+		repository: repository,
+		Semester: semester,
+		Lock: &sync.RWMutex{},
+	}
+	//start writers go routines and save the channel to communicate with them
 	logWriterChannel := service.startDbLogWriter()
 	alertWriterChannel := service.startDbAlertWriter()
 	service.logWriterChannel = logWriterChannel
 	service.alertWriterChannel = alertWriterChannel
-	return service
+	return service, nil
 }
 
-//The entry method for processing a faculty request, is the main method which many go routines will execute 
-//in parallel
+/*
+	The entry method for processing a faculty request, is the main method which many go routines will execute 
+	in parallel
+*/
 func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRoutineId int) (*domain.DTIResponseDTO, error) {
-	s.Cache.Lock.RLock()	//lock for read, since we are reading the semester
-	semester, ok := s.Cache.Semesters[request.Semester]
-	//if the semester doesnt already exist, we have to load it into the cache
-	s.Cache.Lock.RUnlock()	//unlock the read lock
-	if !ok{
-		var err error
-		semester, err = s.loadSemester(request.Semester)
-		if err != nil{
-			return nil, err
-		}
+	//validate the request semester
+	if request.Semester != s.Semester.Semester{
+		return nil, domain.ErrorFacultyInvalidSemester
 	}
-
 	//we get the faculty programs, the function will check that the faculty does exist
 	facultyPrograms, err := s.getFacultyPrograms(request.FacultyName)
 	if err != nil{
@@ -85,7 +94,7 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 			continue
 		}else{
 			//we call the method in charge of process the program request, this is where we access the shared resource and all that stuff
-			response.Programs = s.processProgramRequest(response.Programs, semester, &program, programId, goRoutineId)
+			response.Programs = s.processProgramRequest(response.Programs, &program, programId, goRoutineId)
 		}
 	}
 	
@@ -99,10 +108,10 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, semester *SemesterAvailability, programRequest *domain.DTIProgramRequestDTO, programId uuid.UUID, goRoutineId int) []domain.DTIProgramResponseDTO{
-	//check if we already have an assignation for this program for this semester, if we have, then we send the erroe
-	if ass, _ := s.repository.GetProgramAssignment(programId, semester.Id); ass != nil{
-		log.Printf("Program %s in semester %s already had assignation", programRequest.ProgramName, semester.Semester)
+func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, programRequest *domain.DTIProgramRequestDTO, programId uuid.UUID, goRoutineId int) []domain.DTIProgramResponseDTO{
+	//check if we already have an assignation for this program for this semester, if we have, then we send the already assignacition
+	if ass, _ := s.repository.GetProgramAssignment(programId, s.Semester.ID); ass != nil{
+		log.Printf("Program %s in semester %s already had assignation", programRequest.ProgramName, s.Semester.Semester)
 		programs = append(programs, domain.DTIProgramResponseDTO{
 			ProgramId: programRequest.ProgramId,
 			Classrooms: ass.Classrooms,
@@ -119,42 +128,42 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 	}
 
 	//LOCK THE SEMESTER RESOURCES FOR THE PROCESSING
-	semester.resourcesLock.Lock()
+	s.Lock.Lock()
 
 	//with the logic below we can check all the assignation with or without mobile labs
-	mobileLabsNeeded := programRequest.Labs - semester.Labs	//if with only the availala labs is enough, this will be 0 or negative
+	mobileLabsNeeded := programRequest.Labs - s.Semester.Labs	//if with only the availala labs is enough, this will be 0 or negative
 	if mobileLabsNeeded < 0{
 		mobileLabsNeeded = 0
 	}
-	remainingClassrooms := semester.Classrooms - mobileLabsNeeded	//if we needed no mobile labs, then this will be equals to the available classrooms
+	remainingClassrooms := s.Semester.Classrooms - mobileLabsNeeded	//if we needed no mobile labs, then this will be equals to the available classrooms
 	//if we have enough mobile labs (which implicitely checks if we have enough labs) and we have enough classrooms
-	if mobileLabsNeeded <= semester.MobileLabs && remainingClassrooms >= programRequest.Classrooms{
+	if mobileLabsNeeded <= s.Semester.MobileLabs && remainingClassrooms >= programRequest.Classrooms{
 		assignation := domain.AssignationModel{
 			ID: uuid.New(),
-			SemesterId: semester.Id,
+			SemesterId: s.Semester.ID,
 			ProgramId: programId,
 			CreatedAt: time.Now(),
 			ProgramName: programRequest.ProgramName,
-			SemesterName: semester.Semester,
+			SemesterName: s.Semester.Semester,
 			GoRoutineId: goRoutineId,
 		}
 		//add classroom asignation and update
 		assignation.Classrooms = programRequest.Classrooms
-		semester.Classrooms -= (programRequest.Classrooms + mobileLabsNeeded)
-		assignation.RemainingCLassrooms = semester.Classrooms
+		s.Semester.Classrooms -= (programRequest.Classrooms + mobileLabsNeeded)
+		assignation.RemainingCLassrooms = s.Semester.Classrooms
 		//add labs
 		assignation.Labs = programRequest.Labs
-		semester.Labs -= (programRequest.Labs)-mobileLabsNeeded
-		assignation.RemainingLabs = semester.Labs
+		s.Semester.Labs -= (programRequest.Labs)-mobileLabsNeeded
+		assignation.RemainingLabs = s.Semester.Labs
 		//add mobile labs
 		assignation.MobileLabs = mobileLabsNeeded
-		semester.MobileLabs -= mobileLabsNeeded
+		s.Semester.MobileLabs -= mobileLabsNeeded
 		//this is to adjust, since if we assigned normal classrooms, its possible that now we have less 
 		//classrooms than mobile labs allowed, if thats the case, we need to adjust the mobile labs to the available classrooms
-		if semester.MobileLabs > semester.Classrooms{
-			semester.MobileLabs = semester.Classrooms
+		if s.Semester.MobileLabs > s.Semester.Classrooms{
+			s.Semester.MobileLabs = s.Semester.Classrooms
 		}
-		assignation.RemainingMobileLabs = semester.MobileLabs
+		assignation.RemainingMobileLabs = s.Semester.MobileLabs
 		//finally we send the assignation to be logged and written in the channel
 		s.logWriterChannel <- &assignation
 
@@ -168,17 +177,17 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 		alert := domain.AlertModel{
 			ID: uuid.New(),
 			ProgramId: programId,
-			SemesterId: semester.Id,
+			SemesterId: s.Semester.ID,
 			Message: domain.NotEnoughResourcesMsg,
 			CreatedAt: time.Now(),
 			ProgramName: programRequest.ProgramName,
-			SemesterName: semester.Semester,
+			SemesterName: s.Semester.Semester,
 			GoRoutineId: goRoutineId,
 			RequestedClassrooms: programRequest.Classrooms,
 			RequestedLabs: programRequest.Labs,
-			AvailableClassrooms: semester.Classrooms,
-			AvailableLabs: semester.Labs,
-			AvailableMobileLabs: semester.MobileLabs,
+			AvailableClassrooms: s.Semester.Classrooms,
+			AvailableLabs: s.Semester.Labs,
+			AvailableMobileLabs: s.Semester.MobileLabs,
 		}
 		s.alertWriterChannel <- &alert	//send in the alert channel for queue of alerts and logging
 
@@ -189,7 +198,7 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 		programResponse.StatusMessage = domain.NotEnoughResourcesMsg
 	}
 	//UNLOCK THE LOCK, THE STRATEGY IS TO LOCK FOR EACH PROGRAM, SO WHILE WE DO THE ITERATION OTHER PROGRAM CAN BE PROCESSED
-	semester.resourcesLock.Unlock() 
+	s.Lock.Unlock()
 
 	//now we simply add the program response to the slice and return it, this part is not locking since we already liberated the lock
 	programs = append(programs, programResponse)
@@ -197,51 +206,9 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 }
 
 
-
-func (s *CollegeServiceImpl) loadSemester(semester string)(*SemesterAvailability, error){
-	s.Cache.Lock.Lock()	//compltely lock, Write lock, so that we are able to write and avoid other
-	//go gourintes which also notice that they had to load the semester to reload it after already loaded
-	defer s.Cache.Lock.Unlock()	//defer so that its executed in any possible case
-	//just in case, if perhaps we were ordered to load the semester, but that was while other go routine was already creating it
-	if semester, ok := s.Cache.Semesters[semester]; ok{
-		return semester, nil
-	}
-	//check if the semester exists in DB
-	semesterModel, err := s.repository.GetSemester(semester)
-	if err != nil{
-		return nil, err
-	}else if semesterModel == nil{	//if the semester wasnt found, then we have to create it
-		semesterModel = &domain.SemesterAvailabilityModel{
-			ID: uuid.New(),
-			Semester: semester,
-			Classrooms: s.config.Classrooms,
-			Labs: s.config.Labs,
-			MobileLabs: s.config.MobileLabs,
-		}
-		if err := s.repository.CreateSemester(semesterModel); err != nil{
-			return nil, err
-		}
-	}
-
-	//get the already assigned resources from this semester so we have an updated cache
-	assignedResources, err := s.repository.GetAssignedResourcesOfSemester(semesterModel.ID)
-	if err != nil{
-		return nil, err
-	}
-	//creating the cache model and storing it into the cache
-	semesterCache := &SemesterAvailability{
-		Id: semesterModel.ID,
-		resourcesLock: &sync.Mutex{},
-		Semester: semester,
-		Classrooms: semesterModel.Classrooms - assignedResources.Classrooms,
-		Labs: semesterModel.Labs - assignedResources.Labs,
-		MobileLabs: semesterModel.MobileLabs - assignedResources.MobileLabs,
-	}
-	s.Cache.Semesters[semester] = semesterCache
-	return semesterCache, nil
-}
-
-//method that checks if a faculty exists, and if it those, then it returns the faculty programs
+/*
+	method that checks if a faculty exists, and if it those, then it returns the faculty programs
+*/
 func (s *CollegeServiceImpl) getFacultyPrograms(facultyName string) (map[string]uuid.UUID, error){
 	//we will get the information of the faculty from the request, so that we can valiate the programs
 	faculties, err := s.repository.GetAllFaculties()
@@ -273,8 +240,10 @@ func (s *CollegeServiceImpl) getFacultyPrograms(facultyName string) (map[string]
 }
 
 
-//internal method which will run in a separate go routine, is the writer
-//to the db, is so that it isnt a blocking operation, is like a queue type of management
+/*
+	internal method which will run in a separate go routine, is the writer
+	to the db, is so that it isnt a blocking operation, is like a queue type of management
+*/
 func (s *CollegeServiceImpl) startDbLogWriter()chan *domain.AssignationModel{
 	channel := make(chan *domain.AssignationModel)
 	go func(){
@@ -291,8 +260,11 @@ func (s *CollegeServiceImpl) startDbLogWriter()chan *domain.AssignationModel{
 	return channel
 }
 
-//internal method which will run in a separate go routine, is the writer
-//to the db only for alerts, is so that it isnt a blocking operation, is like a queue type of management
+
+/*
+	internal method which will run in a separate go routine, is the writer
+	to the db only for alerts, is so that it isnt a blocking operation, is like a queue type of management
+*/
 func (s *CollegeServiceImpl) startDbAlertWriter()chan *domain.AlertModel{
 	channel := make(chan *domain.AlertModel)
 	go func(){

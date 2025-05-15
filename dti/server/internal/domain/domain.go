@@ -1,6 +1,10 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"errors"
+
+	"github.com/google/uuid"
+)
 
 //status messages
 const (
@@ -11,9 +15,16 @@ const (
 	OkMsg = "OK"
 )
 
+var (
+	ErrorStartingService = errors.New("unable to start service")
+	ErrorSemesterWasAlreadyProcessed = errors.New("Semester already processed")
+	ErrorFacultyInvalidSemester = errors.New("Faculty semester is not the proccesed one")
+)
+
 
 //models
 type ServiceConfig struct {
+	Semester string
 	Classrooms int
 	Labs       int
 	MobileLabs int

@@ -18,16 +18,18 @@ const (
 	classroomsArg = "--classrooms"
 	labsArg       = "--labs"
 	mobileLabsArg = "--mobile-labs"
+	semesterArg 	= "--semester"
 )
 
 func main() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 	//input structure
-	// --port=<port-number> --classrooms=<number-of-available-classrooms> --labs=<number-of-available-labs> --mobile-labs=<max-number-of-mobile-labs>
-	//executable --port=6000 --classrooms=360 --labs=200 --mobile-labs=50
+	// --port=<port-number> --classrooms=<number-of-available-classrooms> --labs=<number-of-available-labs> --mobile-labs=<max-number-of-mobile-labs> --semester=<semester>
+	//executable --port=6000 --classrooms=360 --labs=200 --mobile-labs=50 --semester=2025-10
 
 	//initial config with default values
 	config := domain.ServiceConfig{
+		Semester : "",
 		Classrooms: 380,
 		Labs:       60,
 		MobileLabs: 380,	//this means how many of the classrooms could be used as labs, in this case the 100% of them
@@ -43,6 +45,9 @@ func main() {
 		//all arguments are numeric, so we convert any argument to number, if it wasnt a nmber, ignore it
 		number, err := strconv.Atoi(parts[1])
 		if err != nil{
+			if parts[0] == semesterArg{
+				config.Semester = parts[1]
+			}
 			continue
 		}
 		switch parts[0]{
@@ -51,6 +56,11 @@ func main() {
 		case labsArg: config.Labs = number
 		case mobileLabsArg: config.MobileLabs = number
 		}
+	}
+
+	//if no semester indicated, we cant initiate
+	if config.Semester == ""{
+		log.Fatal("Unable to start, Semester is required")
 	}
 
 	//check that number of mobile labs is at much the same as classrooms
@@ -82,7 +92,12 @@ func main() {
 	
 	//inject dependencies
 	collegeRepository := repository.NewCollegeRepositoryPostgres(db)
-	collegeService := service.NewCollegeService(&config, collegeRepository)
+	collegeService, err := service.NewCollegeService(&config, collegeRepository)
+	if err != nil{
+		log.Fatalf("Unable to start service: %s", err.Error())
+	}else{
+		log.Printf("Starting service with %d classrooms, %d labs and %d mobile labs", config.Classrooms, config.Labs, config.MobileLabs)
+	}
 	server := transport.NewZeroMQServer(listenPort, collegeService)
 
 	//start server

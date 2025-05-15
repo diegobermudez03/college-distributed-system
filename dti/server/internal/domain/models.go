@@ -58,6 +58,7 @@ type AlertModel struct{
 	AvailableClassrooms 	int
 	AvailableLabs 		int
 	AvailableMobileLabs 	int
+	Assignation *AssignationModel 
 	GoRoutineId	int `gorm:"-"`
 	ProgramName string `gorm:"-"`
 	SemesterName string `gorm:"-"`
