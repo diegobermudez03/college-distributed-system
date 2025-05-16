@@ -33,7 +33,7 @@ func OpenPostgresDb(config PostgresConfig) (*gorm.DB,error) {
 
 	//migrate db, which means, create tables
 	err = db.AutoMigrate(&domain.SemesterAvailabilityModel{}, &domain.FacultyModel{}, 
-		&domain.ProgramModel{}, &domain.AssignationModel{}, &domain.AlertModel{})
+		&domain.ProgramModel{}, &domain.AssignationModel{})
 	if err != nil{
 		return nil, err
 	}

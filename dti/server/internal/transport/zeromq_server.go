@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sync"
 
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
 	"github.com/go-zeromq/zmq4"
@@ -15,12 +16,19 @@ type ZeroMqServer struct {
 	port    int
 	service domain.CollegeService
 	socket  zmq4.Socket
+	counter int
+	endChannel chan bool
+	faculties int
+	lock sync.Mutex
 }
 
-func NewZeroMQServer(port int, service domain.CollegeService) *ZeroMqServer {
+func NewZeroMQServer(port int, service domain.CollegeService, endChannel chan bool, faculties int) *ZeroMqServer {
 	return &ZeroMqServer{
 		port: port,
 		service: service,
+		faculties: faculties,
+		endChannel: endChannel,
+		lock: sync.Mutex{},
 	}
 }
 
@@ -39,11 +47,14 @@ func (s *ZeroMqServer) Listen() error {
 		return err
 	}
 	log.Print("Listening on port: ", s.port)
-	for{
-		message, err := socket.Recv()
-		//process in a seaparate new go routine the message to continue listening for new messages
-		go s.processMessage(message, err)
-	}
+	go func(){
+		for{
+			message, err := socket.Recv()
+			//process in a seaparate new go routine the message to continue listening for new messages
+			go s.processMessage(message, err)
+		}
+	}()
+	return nil
 }
 
 
@@ -80,6 +91,13 @@ func (s *ZeroMqServer) processMessage(message zmq4.Msg, err error){
 		s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes))
 		return
 	}
+	//check if we completed all the faculties so we send the end signal
+	s.lock.Lock()
+	s.counter++
+	if s.counter == s.faculties{
+		s.endChannel <-true
+	}
+	s.lock.Unlock()
 	//send response to the spceified client
 	responseBytes, _ := json.Marshal(response)
 	s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes))

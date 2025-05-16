@@ -17,8 +17,8 @@ const (
 
 var (
 	ErrorStartingService = errors.New("unable to start service")
-	ErrorSemesterWasAlreadyProcessed = errors.New("Semester already processed")
-	ErrorFacultyInvalidSemester = errors.New("Faculty semester is not the proccesed one")
+	ErrorSemesterWasAlreadyProcessed = errors.New("semester already processed")
+	ErrorFacultyInvalidSemester = errors.New("faculty semester is not the proccesed one")
 )
 
 
@@ -40,6 +40,9 @@ type DTIResponseDTO struct {
 
 type DTIProgramResponseDTO struct{
 	ProgramId     uuid.UUID `json:"program-id"`
+	ProgramName 	string 	`json:"program-name"`
+	RequestedClassrooms 	int 	`json:"requested-classrooms"`
+	RequestedLabs 			int 	`json:"requested-labs"`
 	Classrooms    int       `json:"classrooms"`
 	Labs          int       `json:"labs"`
 	MobileLabs    int       `json:"mobile-labs"`

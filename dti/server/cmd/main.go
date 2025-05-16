@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain/service"
@@ -19,6 +20,8 @@ const (
 	labsArg       = "--labs"
 	mobileLabsArg = "--mobile-labs"
 	semesterArg 	= "--semester"
+	numberFacultiesArg = "--num-faculties"
+	failSecondsArg = "--fail-seconds"
 )
 
 func main() {
@@ -35,7 +38,9 @@ func main() {
 		MobileLabs: 380,	//this means how many of the classrooms could be used as labs, in this case the 100% of them
 	}
 	listenPort := 6000 	//default listen port
-
+	failSeconds := 31536000
+	numFaculties := 10
+ 
 	//iterate over arguments and read them
 	for _, arg := range os.Args {
 		if !strings.Contains(arg, "=") {
@@ -55,6 +60,8 @@ func main() {
 		case classroomsArg: config.Classrooms = number
 		case labsArg: config.Labs = number
 		case mobileLabsArg: config.MobileLabs = number
+		case numberFacultiesArg: numFaculties = number
+		case failSecondsArg: failSeconds = number
 		}
 	}
 
@@ -98,10 +105,19 @@ func main() {
 	}else{
 		log.Printf("Starting service with %d classrooms, %d labs and %d mobile labs", config.Classrooms, config.Labs, config.MobileLabs)
 	}
-	server := transport.NewZeroMQServer(listenPort, collegeService)
 
+	endChannel := make(chan bool)
+	server := transport.NewZeroMQServer(listenPort, collegeService,endChannel ,numFaculties)
 	//start server
 	if err := server.Listen(); err != nil{
 		log.Fatal("Unable to start server at port: ", listenPort, " error: ", err.Error())
+	}
+
+	//wait for end signal
+	select{
+	case <- time.Tick(time.Duration(failSeconds) * time.Second):
+		log.Printf("Fail simulated after %d seconds", failSeconds)
+	case <- endChannel:
+		log.Printf("Completed all %d faculties", numFaculties)
 	}
 }

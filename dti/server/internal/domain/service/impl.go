@@ -18,7 +18,6 @@ type CollegeServiceImpl struct {
 	Lock 		*sync.RWMutex //lock for retrieving the semester info, is Read Write since it depends on if we are reading or writing
 	Semester 	domain.SemesterAvailabilityModel
 	logWriterChannel chan *domain.AssignationModel
-	alertWriterChannel chan *domain.AlertModel
 }
 
 func NewCollegeService(config *domain.ServiceConfig, repository repository.CollegeRepository) (domain.CollegeService, error) {
@@ -50,9 +49,7 @@ func NewCollegeService(config *domain.ServiceConfig, repository repository.Colle
 	}
 	//start writers go routines and save the channel to communicate with them
 	logWriterChannel := service.startDbLogWriter()
-	alertWriterChannel := service.startDbAlertWriter()
 	service.logWriterChannel = logWriterChannel
-	service.alertWriterChannel = alertWriterChannel
 	return service, nil
 }
 
@@ -82,19 +79,22 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 	for _, program := range request.Programs{
 		programName := s.convertToBasicString(program.ProgramName)
 
+		//create base of program response
+		programResponse := domain.DTIProgramResponseDTO{
+			ProgramId: program.ProgramId,
+			ProgramName: program.ProgramName,
+			RequestedClassrooms: program.Classrooms,
+			RequestedLabs: program.Labs,
+		}
+
 		//if the program isnt a valid faculty program, we add it as a program error
-		if programId, ok := facultyPrograms[programName]; !ok{
-			response.Programs = append(response.Programs, domain.DTIProgramResponseDTO{
-				ProgramId: program.ProgramId,
-				Classrooms: 0,
-				Labs: 0,
-				MobileLabs: 0,
-				StatusMessage: domain.InvalidProgramMsg,
-			})
+		if _, ok := facultyPrograms[programName]; !ok{
+			programResponse.StatusMessage = domain.InvalidProgramMsg
+			response.Programs = append(response.Programs, programResponse)
 			continue
 		}else{
 			//we call the method in charge of process the program request, this is where we access the shared resource and all that stuff
-			response.Programs = s.processProgramRequest(response.Programs, &program, programId, goRoutineId)
+			response.Programs = s.processProgramRequest(response.Programs, programResponse, goRoutineId)
 		}
 	}
 	
@@ -108,12 +108,12 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, programRequest *domain.DTIProgramRequestDTO, programId uuid.UUID, goRoutineId int) []domain.DTIProgramResponseDTO{
+func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, programResponse domain.DTIProgramResponseDTO, goRoutineId int) []domain.DTIProgramResponseDTO{
 	//check if we already have an assignation for this program for this semester, if we have, then we send the already assignacition
-	if ass, _ := s.repository.GetProgramAssignment(programId, s.Semester.ID); ass != nil{
-		log.Printf("Program %s in semester %s already had assignation", programRequest.ProgramName, s.Semester.Semester)
+	if ass, _ := s.repository.GetProgramAssignment(programResponse.ProgramId, s.Semester.ID); ass != nil{
+		log.Printf("Program %s in semester %s already had assignation", programResponse.ProgramName, s.Semester.Semester)
 		programs = append(programs, domain.DTIProgramResponseDTO{
-			ProgramId: programRequest.ProgramId,
+			ProgramId: programResponse.ProgramId,
 			Classrooms: ass.Classrooms,
 			Labs: ass.Labs,
 			MobileLabs: ass.MobileLabs,
@@ -121,85 +121,65 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 		})
 		return programs
 	}
-	
-	//create the response DTO struct
-	programResponse := domain.DTIProgramResponseDTO{
-		ProgramId: programRequest.ProgramId,
-	}
 
 	//LOCK THE SEMESTER RESOURCES FOR THE PROCESSING
 	s.Lock.Lock()
 
 	//with the logic below we can check all the assignation with or without mobile labs
-	mobileLabsNeeded := programRequest.Labs - s.Semester.Labs	//if with only the availala labs is enough, this will be 0 or negative
+	mobileLabsNeeded := programResponse.RequestedLabs - s.Semester.Labs	//if with only the availala labs is enough, this will be 0 or negative
 	if mobileLabsNeeded < 0{
 		mobileLabsNeeded = 0
 	}
 	remainingClassrooms := s.Semester.Classrooms - mobileLabsNeeded	//if we needed no mobile labs, then this will be equals to the available classrooms
-	//if we have enough mobile labs (which implicitely checks if we have enough labs) and we have enough classrooms
-	if mobileLabsNeeded <= s.Semester.MobileLabs && remainingClassrooms >= programRequest.Classrooms{
-		assignation := domain.AssignationModel{
-			ID: uuid.New(),
-			SemesterId: s.Semester.ID,
-			ProgramId: programId,
-			CreatedAt: time.Now(),
-			ProgramName: programRequest.ProgramName,
-			SemesterName: s.Semester.Semester,
-			GoRoutineId: goRoutineId,
-		}
-		//add classroom asignation and update
-		assignation.Classrooms = programRequest.Classrooms
-		s.Semester.Classrooms -= (programRequest.Classrooms + mobileLabsNeeded)
-		assignation.RemainingCLassrooms = s.Semester.Classrooms
-		//add labs
-		assignation.Labs = programRequest.Labs
-		s.Semester.Labs -= (programRequest.Labs)-mobileLabsNeeded
-		assignation.RemainingLabs = s.Semester.Labs
-		//add mobile labs
-		assignation.MobileLabs = mobileLabsNeeded
-		s.Semester.MobileLabs -= mobileLabsNeeded
-		//this is to adjust, since if we assigned normal classrooms, its possible that now we have less 
-		//classrooms than mobile labs allowed, if thats the case, we need to adjust the mobile labs to the available classrooms
-		if s.Semester.MobileLabs > s.Semester.Classrooms{
-			s.Semester.MobileLabs = s.Semester.Classrooms
-		}
-		assignation.RemainingMobileLabs = s.Semester.MobileLabs
-		//finally we send the assignation to be logged and written in the channel
-		s.logWriterChannel <- &assignation
 
-		//update response DTO
-		programResponse.Classrooms = programRequest.Classrooms
-		programResponse.Labs = programRequest.Labs
-		programResponse.StatusMessage = domain.OkMsg
-		programResponse.MobileLabs = mobileLabsNeeded
-	}else{
-		//this is the case in which we were unable to assign resources, in which case we must return an the error
-		alert := domain.AlertModel{
-			ID: uuid.New(),
-			ProgramId: programId,
-			SemesterId: s.Semester.ID,
-			Message: domain.NotEnoughResourcesMsg,
-			CreatedAt: time.Now(),
-			ProgramName: programRequest.ProgramName,
-			SemesterName: s.Semester.Semester,
-			GoRoutineId: goRoutineId,
-			RequestedClassrooms: programRequest.Classrooms,
-			RequestedLabs: programRequest.Labs,
-			AvailableClassrooms: s.Semester.Classrooms,
-			AvailableLabs: s.Semester.Labs,
-			AvailableMobileLabs: s.Semester.MobileLabs,
-		}
-		s.alertWriterChannel <- &alert	//send in the alert channel for queue of alerts and logging
+	//by default assign the requested resources (if any was overloaded we will correct later)
+	programResponse.Classrooms = programResponse.RequestedClassrooms
+	programResponse.Labs = programResponse.RequestedLabs - mobileLabsNeeded
+	programResponse.MobileLabs = mobileLabsNeeded
 
-		//update response DTO
-		programResponse.Classrooms = 0
-		programResponse.Labs = 0
-		programResponse.MobileLabs = 0
+	//if either classrooms or labs are more than available, we generate the error and assign the available ones
+	if mobileLabsNeeded > s.Semester.MobileLabs || programResponse.RequestedClassrooms > remainingClassrooms{
 		programResponse.StatusMessage = domain.NotEnoughResourcesMsg
+		//if requested classrooms were more than available
+		if programResponse.RequestedClassrooms > remainingClassrooms{
+			programResponse.Classrooms = remainingClassrooms
+		}
+		//if labs were more than available
+		if mobileLabsNeeded > s.Semester.MobileLabs{
+			programResponse.Labs = s.Semester.Labs
+			programResponse.MobileLabs = s.Semester.MobileLabs
+		}
 	}
-	//UNLOCK THE LOCK, THE STRATEGY IS TO LOCK FOR EACH PROGRAM, SO WHILE WE DO THE ITERATION OTHER PROGRAM CAN BE PROCESSED
+	s.Semester.Classrooms -= programResponse.Classrooms + mobileLabsNeeded //we have less classrooms, the classrooms reserved and the mobile labs used
+	s.Semester.Labs -= programResponse.Labs
+	s.Semester.MobileLabs -= programResponse.MobileLabs
+
+	//create assignation model (for DB)
+	assignation := domain.AssignationModel{
+		ID: uuid.New(),
+		CreatedAt: time.Now(),
+		ProgramId: programResponse.ProgramId,
+		SemesterId: s.Semester.ID,
+		RequestedClassrooms: programResponse.RequestedClassrooms,
+		RequestedLabs: programResponse.RequestedLabs,
+		Classrooms: programResponse.Classrooms,
+		Labs: programResponse.Labs,
+		MobileLabs: programResponse.MobileLabs,
+		GoRoutineId: goRoutineId,
+		ProgramName: programResponse.ProgramName,
+		SemesterName: s.Semester.Semester,
+		RemainingCLassrooms: s.Semester.Classrooms,
+		RemainingLabs: s.Semester.Labs,
+		RemainingMobileLabs: s.Semester.MobileLabs,
+	}
+	//free lock
 	s.Lock.Unlock()
 
+	//if we had less resources than needed, we send the aler
+	if programResponse.StatusMessage == domain.NotEnoughResourcesMsg{
+		assignation.Alert = true
+	}
+	s.logWriterChannel <- &assignation
 	//now we simply add the program response to the slice and return it, this part is not locking since we already liberated the lock
 	programs = append(programs, programResponse)
 	return programs
@@ -260,26 +240,6 @@ func (s *CollegeServiceImpl) startDbLogWriter()chan *domain.AssignationModel{
 	return channel
 }
 
-
-/*
-	internal method which will run in a separate go routine, is the writer
-	to the db only for alerts, is so that it isnt a blocking operation, is like a queue type of management
-*/
-func (s *CollegeServiceImpl) startDbAlertWriter()chan *domain.AlertModel{
-	channel := make(chan *domain.AlertModel)
-	go func(){
-		for message := range channel{
-			//log what we just did
-			log.Printf("XXXXX-ALERT BY GO ROUTINE: %v PROGRAM: %v SEMESTER: %v CLASSROOMS: %d LABS: %d AVILABLE RESOURCES OF SEMESTER C:%d L:%d ML:%d",
-				message.GoRoutineId,message.ProgramName,message.SemesterName,message.RequestedClassrooms,message.RequestedLabs,message.AvailableClassrooms,
-				message.AvailableLabs,message.AvailableMobileLabs,
-			)
-			//save to db, blocking operation, however this is our purpose, to be the go routine blocked so the main ones are not
-			s.repository.CreateAlert(message)
-		}
-	}()
-	return channel
-}
 
 
 func (s *CollegeServiceImpl) convertToBasicString(baseString string) string{

@@ -13,8 +13,8 @@ type SemesterAvailabilityModel struct {
 	Labs 		int
 	MobileLabs 	int
 	Assignations []AssignationModel `gorm:"foreignKey:SemesterId"`
-	Alerts []AlertModel `gorm:"foreignKey:SemesterId"`
 }
+
 
 type FacultyModel struct{
 	ID 		uuid.UUID	`gorm:"type:uuid;primaryKey"`
@@ -28,40 +28,26 @@ type ProgramModel struct{
 	FacultyId uuid.UUID
 	Faculty FacultyModel `gorm:"references:ID"`
 	Assignations []AssignationModel `gorm:"foreignKey:ProgramId"`
-	Alerts []AlertModel `gorm:"foreignKey:ProgramId"`
 }
+
 
 type AssignationModel struct{
 	ID 			uuid.UUID	`gorm:"type:uuid;primaryKey"`
 	SemesterId 	uuid.UUID
 	ProgramId 	uuid.UUID
+	RequestedClassrooms 	int
+	RequestedLabs 		int
 	Classrooms 	int
 	Labs 		int
 	MobileLabs 	int
 	CreatedAt 	time.Time
+	Alert 		bool
 	GoRoutineId	int `gorm:"-"`
 	ProgramName string `gorm:"-"`
 	SemesterName string `gorm:"-"`
 	RemainingCLassrooms int `gorm:"-"`
 	RemainingLabs int `gorm:"-"`
 	RemainingMobileLabs int `gorm:"-"`
-}
-
-type AlertModel struct{
-	ID 			uuid.UUID 	`gorm:"type:uuid;primaryKey"`
-	ProgramId 	uuid.UUID
-	SemesterId 	uuid.UUID
-	Message 	string
-	RequestedClassrooms 	int
-	RequestedLabs 		int
-	CreatedAt 	time.Time
-	AvailableClassrooms 	int
-	AvailableLabs 		int
-	AvailableMobileLabs 	int
-	Assignation *AssignationModel 
-	GoRoutineId	int `gorm:"-"`
-	ProgramName string `gorm:"-"`
-	SemesterName string `gorm:"-"`
 }
 
 //NON DB TABLES

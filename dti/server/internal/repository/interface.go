@@ -14,7 +14,6 @@ type CollegeRepository interface {
 	GetFullFacultyById(facultyId uuid.UUID) (*domain.FacultyModel, error)
 	GetAllFaculties() ([]domain.FacultyModel, error)
 	CreateAssignation(assignation *domain.AssignationModel) error
-	CreateAlert(alert *domain.AlertModel) error
 	GetProgramAssignment(programId uuid.UUID, semesterId uuid.UUID) (*domain.AssignationModel, error)
 	//CreateProgram(program *domain.ProgramModel) error
 }

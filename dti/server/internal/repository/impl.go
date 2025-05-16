@@ -70,9 +70,6 @@ func (r *CollegeRepositoryPostgres) CreateAssignation(assignation *domain.Assign
 	return r.db.Create(&assignation).Error
 }
 
-func (r *CollegeRepositoryPostgres) CreateAlert(alert *domain.AlertModel) error{
-	return r.db.Create(&alert).Error
-}
 
 func (r *CollegeRepositoryPostgres) GetProgramAssignment(programId uuid.UUID, semesterId uuid.UUID) (*domain.AssignationModel, error){
 	var assignation domain.AssignationModel
