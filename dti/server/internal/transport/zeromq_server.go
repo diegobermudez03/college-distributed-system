@@ -3,10 +3,12 @@ package transport
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
 	"github.com/go-zeromq/zmq4"
@@ -18,16 +20,18 @@ type ZeroMqServer struct {
 	socket  zmq4.Socket
 	counter int
 	endChannel chan bool
+	proxyServer string
 	faculties int
 	lock sync.Mutex
 }
 
-func NewZeroMQServer(port int, service domain.CollegeService, endChannel chan bool, faculties int) *ZeroMqServer {
+func NewZeroMQServer(service domain.CollegeService, config domain.ServerConfig) *ZeroMqServer {
 	return &ZeroMqServer{
-		port: port,
+		port: config.ListenPort,
 		service: service,
-		faculties: faculties,
-		endChannel: endChannel,
+		faculties: config.NumFaculties,
+		endChannel: config.EndChannel,
+		proxyServer: config.ProxyServer,
 		lock: sync.Mutex{},
 	}
 }
@@ -37,6 +41,33 @@ func (s *ZeroMqServer) Listen() error {
 	//first we poblate the DB
 	if err:= s.service.PoblateFacultiesAndPrograms(); err != nil{
 		return err
+	}
+
+	//if we are using a proxy server, then we suscribe
+	if s.proxyServer != ""{
+		//establish connection with the faculty
+		socket := zmq4.NewReq(context.Background(), zmq4.WithDialerRetry(time.Second))
+		defer socket.Close()
+		if err := socket.Dial(fmt.Sprintf("tcp://%s", s.proxyServer)); err != nil {
+			return errors.New("unable to connect with Proxy")
+		}
+		suscribeRequest := SuscribeDTO{
+			Suscribe: true,
+		}
+		bytes, _ := json.Marshal(suscribeRequest)
+		message := zmq4.NewMsgString(string(bytes))
+		socket.Send(message)
+		//request sent to the faculty with JSON structure
+		//wait for response
+		response, err := socket.Recv()
+		if err != nil{
+			return errors.New("error suscribing with Proxy")
+		}
+
+		responseJson := SuscribeResponseDTO{}
+		if err := json.Unmarshal(response.Bytes(), &responseJson); err != nil || !responseJson.Suscribed{
+			return errors.New("unable to suscribe with the proxy")
+		}
 	}
 
 	//create zeromq socket and listen in the given port
@@ -74,9 +105,19 @@ func (s *ZeroMqServer) processMessage(message zmq4.Msg, err error){
 	}
 	clientRequestBytes := message.Frames[1]
 	clientRequest := domain.DTIRequestDTO{}
+
+	////////////  HEALTH CHECK VALIDATION  //////////////////////////////////////////
+	//if message wasnt a request, we check if it was a HEALTH CHECK
 	if err := json.Unmarshal(clientRequestBytes, &clientRequest); err != nil{
+		hCheck := HealthCheckDTO{}
+		if err := json.Unmarshal(clientRequestBytes, &hCheck); err != nil{
+			return 
+		}
+		//if it was a health check, we answer with a simple 1 byte
+		s.socket.Send(zmq4.NewMsgFrom(clientIdentity, []byte{1}))
 		return 
 	}
+	////////////  HEALTH CHECK VALIDATION  //////////////////////////////////////////
 
 	//process message with the service
 	response, err := s.service.ProcessRequest(clientRequest, goRoutineId)

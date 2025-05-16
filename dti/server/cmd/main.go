@@ -22,6 +22,7 @@ const (
 	semesterArg 	= "--semester"
 	numberFacultiesArg = "--num-faculties"
 	failSecondsArg = "--fail-seconds"
+	proxyArg = "--proxy-server"
 )
 
 func main() {
@@ -37,9 +38,13 @@ func main() {
 		Labs:       60,
 		MobileLabs: 380,	//this means how many of the classrooms could be used as labs, in this case the 100% of them
 	}
-	listenPort := 6000 	//default listen port
+	serverConfig := domain.ServerConfig{
+		ListenPort: 6000,
+		NumFaculties: 10,
+		EndChannel: make(chan bool),
+		ProxyServer: "",
+	}
 	failSeconds := 31536000
-	numFaculties := 10
  
 	//iterate over arguments and read them
 	for _, arg := range os.Args {
@@ -50,17 +55,18 @@ func main() {
 		//all arguments are numeric, so we convert any argument to number, if it wasnt a nmber, ignore it
 		number, err := strconv.Atoi(parts[1])
 		if err != nil{
-			if parts[0] == semesterArg{
-				config.Semester = parts[1]
+			switch parts[0]{
+			case semesterArg: config.Semester = parts[1]
+			case proxyArg: serverConfig.ProxyServer = parts[1]
 			}
 			continue
 		}
 		switch parts[0]{
-		case portArg: listenPort = number
+		case portArg: serverConfig.ListenPort = number
 		case classroomsArg: config.Classrooms = number
 		case labsArg: config.Labs = number
 		case mobileLabsArg: config.MobileLabs = number
-		case numberFacultiesArg: numFaculties = number
+		case numberFacultiesArg: serverConfig.NumFaculties = number
 		case failSecondsArg: failSeconds = number
 		}
 	}
@@ -107,10 +113,10 @@ func main() {
 	}
 
 	endChannel := make(chan bool)
-	server := transport.NewZeroMQServer(listenPort, collegeService,endChannel ,numFaculties)
+	server := transport.NewZeroMQServer(collegeService, serverConfig)
 	//start server
 	if err := server.Listen(); err != nil{
-		log.Fatal("Unable to start server at port: ", listenPort, " error: ", err.Error())
+		log.Fatal("Unable to start server at port: ", serverConfig.ListenPort, " error: ", err.Error())
 	}
 
 	//wait for end signal
@@ -118,6 +124,6 @@ func main() {
 	case <- time.Tick(time.Duration(failSeconds) * time.Second):
 		log.Printf("Fail simulated after %d seconds", failSeconds)
 	case <- endChannel:
-		log.Printf("Completed all %d faculties", numFaculties)
+		log.Printf("Completed all %d faculties", serverConfig.NumFaculties)
 	}
 }

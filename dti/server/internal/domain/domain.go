@@ -30,6 +30,13 @@ type ServiceConfig struct {
 	MobileLabs int
 }
 
+type ServerConfig struct{
+	ListenPort 	int
+	NumFaculties int
+	EndChannel chan bool
+	ProxyServer string
+}
+
 //dtos
 type DTIResponseDTO struct {
 	Semester string               	`json:"semester"`
