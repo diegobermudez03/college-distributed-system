@@ -1,6 +1,7 @@
 resource "google_compute_instance" "proxy_vm"{
     name = "proxy-vm"
-    machine_type = "f1-micro"
+    machine_type = "e2-medium"
+    allow_stopping_for_update = true
     zone = var.zone1_name
     boot_disk {
         initialize_params {

@@ -161,6 +161,7 @@ func startZeroMQClient(channel chan [][]byte, healthCheck chan bool) error {
 				serverLock.Unlock()
 				continue
 			}
+			log.Printf("sending message to: %s", activeServer)
 			serverLock.Unlock()
 		}
 	}()
@@ -189,6 +190,7 @@ func startZeroMQClient(channel chan [][]byte, healthCheck chan bool) error {
 		if !ok {
 			continue
 		}
+		log.Printf("Sending answer to client")
 		serverSocket.Send(zmq4.NewMsgFrom(clientIdentity, response.Frames[0]))
 		delete(activeClients, clientId)
 	}
