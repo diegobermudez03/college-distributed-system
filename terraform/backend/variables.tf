@@ -46,3 +46,7 @@ variable "proxy_obj"{
 variable "proxy_name"{
     type = string 
 }
+
+variable "db_address"{
+    type = string 
+}

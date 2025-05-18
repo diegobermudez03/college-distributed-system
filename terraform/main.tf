@@ -46,16 +46,17 @@ module "backend" {
   zone1_name = "us-west1-a"
   zone2_name = "us-east1-b"
   network_name = module.vpc.network_name
-  req_rep_obj = module.buckets.req_rep_exe_obj
+  req_rep_obj = module.buckets.req_rep_exe_obj_name
   req_rep_name = module.buckets.req_rep_exec_name
-  lb_obj = module.buckets.lb_exe_obj
+  lb_obj = module.buckets.lb_exe_obj_name
   lb_name = module.buckets.lb_exec_name
   proxy_obj = module.buckets.proxy_obj_name
   proxy_name = module.buckets.proxy_exec_name
+  db_address = module.db.ip_address
 }
 
 ##create vm for faculties and programs
-resource "google_compute_instance" "gce_vm"{
+resource "google_compute_instance" "clients_vm"{
     name = "clients-vm"
     machine_type = "custom-4-3840"
     zone = "us-east1-b"

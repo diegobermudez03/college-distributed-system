@@ -36,6 +36,16 @@ resource "google_compute_firewall" "firewall_rules"{
     direction = "INGRESS"
     allow {
         protocol = "tcp"
-        ports = ["5432", "8080", "6000", "5001", "5002", "5003", "5004", "22"]
+        ports = ["5432", "8080", "6000", "5001", "5002", "5003", "5004","5005", "22"]
+    }
+}
+
+resource "google_compute_firewall" "internal_rules"{
+    name = "vpc-internal-rules"
+    network = google_compute_network.college_vpc.self_link
+    source_ranges = ["10.0.0.0/8"]
+    direction = "INGRESS"
+    allow {
+        protocol = "all"
     }
 }

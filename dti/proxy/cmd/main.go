@@ -18,15 +18,12 @@ import (
 	"github.com/google/uuid"
 )
 
-
-
 type HealthCheckDTO struct {
 	HealthCheck bool `json:"health-check"`
 }
 
-
 const (
-	portArg = "--port"
+	portArg         = "--port"
 	suscribePortArg = "--sus-port"
 	healthTickerArg = "--healt-ticker"
 )
@@ -38,62 +35,63 @@ var serverSocket zmq4.Socket = nil
 var serverLock sync.Mutex = sync.Mutex{}
 var activeClients map[uuid.UUID][]byte = map[uuid.UUID][]byte{}
 
-
 func main() {
 	port := ":6000"
 	susPort := ":7000"
 	healthTicker := 5
 	//read arguments
-	for _, arg := range os.Args{
-		if !strings.Contains(arg, "="){
+	for _, arg := range os.Args {
+		if !strings.Contains(arg, "=") {
 			continue
 		}
 		parts := strings.Split(arg, "=")
-		switch parts[0]{
-		case portArg: port = ":" + parts[1]
-		case suscribePortArg: susPort = ":" + parts[1]
-		case healthTickerArg: healthTicker, _ = strconv.Atoi(parts[1])
+		switch parts[0] {
+		case portArg:
+			port = ":" + parts[1]
+		case suscribePortArg:
+			susPort = ":" + parts[1]
+		case healthTickerArg:
+			healthTicker, _ = strconv.Atoi(parts[1])
 		}
 	}
 
 	//start listener for suscribe servers
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	if err := listenForSuscriptions(susPort, &wg); err != nil{
+	if err := listenForSuscriptions(susPort, &wg); err != nil {
 		log.Fatal(err.Error())
 	}
 	wg.Wait() //wait for having at least 1 server
 	//start the server for ZeroMQ
 	messageChannel := make(chan [][]byte)
-	if err := listenForZeroMQClients(port, messageChannel); err != nil{
+	if err := listenForZeroMQClients(port, messageChannel); err != nil {
 		log.Fatal(err.Error())
 	}
 
 	//start the ZeroMQ client with the active server
 	healthCheckChannel := make(chan bool)
 	go startHealthCheck(healthCheckChannel, healthTicker)
-	if err := startZeroMQClient(messageChannel, healthCheckChannel); err != nil{
+	if err := startZeroMQClient(messageChannel, healthCheckChannel); err != nil {
 		log.Fatal(err.Error())
 	}
 }
 
-
 /*
-	Method to listen for instances trying to suscribe in the TCP port
+Method to listen for instances trying to suscribe in the TCP port
 */
-func listenForSuscriptions(susPort string, wg *sync.WaitGroup) error{
+func listenForSuscriptions(susPort string, wg *sync.WaitGroup) error {
 	//start listener for suscribe servers
-	listener, err := net.Listen("tcp", "127.0.0.1" +susPort)
-	if err != nil{
+	listener, err := net.Listen("tcp", "0.0.0.0"+susPort)
+	if err != nil {
 		return errors.New("unable to listen for suscribe connections")
 	}
 	log.Printf("Listening for suscriptions on: %s", listener.Addr().String())
-	go func(){
+	go func() {
 		defer listener.Close()
-		for{
+		for {
 			//handle tcp message, server suscription
 			conn, err := listener.Accept()
-			if err != nil{
+			if err != nil {
 				continue
 			}
 			reader := bufio.NewReader(conn)
@@ -102,16 +100,16 @@ func listenForSuscriptions(susPort string, wg *sync.WaitGroup) error{
 			parts := strings.Split(serverAddress, ":")
 			ipAddress := parts[0]
 			port, err := reader.ReadString('\n')
-			port = strings.ReplaceAll(port,"\n", "")
-			if err != nil{
+			port = strings.ReplaceAll(port, "\n", "")
+			if err != nil {
 				conn.Close()
 				continue
 			}
-			server :=  ipAddress + ":" +port
+			server := ipAddress + ":" + port
 			suscribedServers = append(suscribedServers, server)
 			log.Printf("New suscriber: %s", server)
 			//if we dont have yet an active server, then we set this one as it
-			if activeServer == ""{
+			if activeServer == "" {
 				activeServer = suscribedServers[0]
 				suscribedServers = suscribedServers[1:]
 				log.Printf("Active server selected: %s", activeServer)
@@ -125,23 +123,22 @@ func listenForSuscriptions(susPort string, wg *sync.WaitGroup) error{
 	return nil
 }
 
-
 /*
-	Method to start the ZeroMQ router to listen to client requests
+Method to start the ZeroMQ router to listen to client requests
 */
-func listenForZeroMQClients(port string, channel chan [][]byte) error{
+func listenForZeroMQClients(port string, channel chan [][]byte) error {
 	socket := zmq4.NewRouter(context.Background())
-	if err := socket.Listen(fmt.Sprintf("tcp://127.0.0.1%s", port)); err != nil {
+	if err := socket.Listen(fmt.Sprintf("tcp://0.0.0.0%s", port)); err != nil {
 		return err
 	}
 	log.Printf("Listening for clients on: %s", socket.Addr().String())
 	serverSocket = socket
 	//listen to all messages received
-	go func(){
+	go func() {
 		defer socket.Close()
-		for{
+		for {
 			message, err := socket.Recv()
-			if err != nil{
+			if err != nil {
 				continue
 			}
 			channel <- message.Frames
@@ -151,16 +148,16 @@ func listenForZeroMQClients(port string, channel chan [][]byte) error{
 }
 
 /*
-	Method to start the ZeroMQ client
+Method to start the ZeroMQ client
 */
-func startZeroMQClient(channel chan [][]byte, healthCheck chan bool)error{
+func startZeroMQClient(channel chan [][]byte, healthCheck chan bool) error {
 	stablishConnection()
-	go func(){
-		for message := range channel{
+	go func() {
+		for message := range channel {
 			clientId := uuid.New()
 			activeClients[clientId] = message[0]
 			serverLock.Lock()
-			if err := clientSocket.Send(zmq4.NewMsgFrom(message[1], []byte(clientId.String()))); err != nil{
+			if err := clientSocket.Send(zmq4.NewMsgFrom(message[1], []byte(clientId.String()))); err != nil {
 				serverLock.Unlock()
 				continue
 			}
@@ -169,27 +166,27 @@ func startZeroMQClient(channel chan [][]byte, healthCheck chan bool)error{
 	}()
 
 	//start listener for server responses
-	for{
-		if clientSocket == nil{
+	for {
+		if clientSocket == nil {
 			continue
 		}
 		response, err := clientSocket.Recv()
-		if err != nil{
+		if err != nil {
 			clientSocket = nil
 			continue
 		}
 		//if it was a healthcheck
-		if response.Frames[0][0] == 1{
+		if response.Frames[0][0] == 1 {
 			healthCheck <- true
-			continue 
+			continue
 		}
 		//if it wasnt a health check but an actual response
 		clientId, err := uuid.Parse(string(response.Frames[1]))
-		if err != nil{
+		if err != nil {
 			continue
 		}
 		clientIdentity, ok := activeClients[clientId]
-		if  !ok{
+		if !ok {
 			continue
 		}
 		serverSocket.Send(zmq4.NewMsgFrom(clientIdentity, response.Frames[0]))
@@ -198,33 +195,34 @@ func startZeroMQClient(channel chan [][]byte, healthCheck chan bool)error{
 	return nil
 }
 
-
 /*
-	Method for sending the health check to the server
+Method for sending the health check to the server
 */
-func startHealthCheck(responseChannel chan bool, healthTicker int){
+func startHealthCheck(responseChannel chan bool, healthTicker int) {
 	ticker := time.NewTicker(time.Second * time.Duration(healthTicker))
 	helathCheckMessage := HealthCheckDTO{
 		HealthCheck: true,
 	}
 	message, _ := json.Marshal(helathCheckMessage)
-	for range ticker.C{
-		if clientSocket == nil{
+	for range ticker.C {
+		if clientSocket == nil {
 			stablishConnection()
 			continue
 		}
 		serverLock.Lock()
 		log.Printf("sending health check to: %s", activeServer)
-		if err := clientSocket.Send(zmq4.NewMsgFrom(message)); err != nil{
+		if err := clientSocket.Send(zmq4.NewMsgFrom(message)); err != nil {
 			serverLock.Unlock()
 			continue
 		}
 		serverLock.Unlock()
 		timeout := time.Tick(time.Second * 5)
 		//wait to see if we receive the health check answer, or if not, then we need to find another server
-		select{
-		case <-responseChannel: log.Print("Health check OK")
-		case <- timeout: {
+		select {
+		case <-responseChannel:
+			log.Print("Health check OK")
+		case <-timeout:
+			{
 				log.Printf("Health check failed")
 				stablishConnection()
 			}
@@ -233,21 +231,21 @@ func startHealthCheck(responseChannel chan bool, healthTicker int){
 }
 
 /*
-	Method to try to stabish connection with a new server
+Method to try to stabish connection with a new server
 */
-func stablishConnection(){
+func stablishConnection() {
 	ctx, _ := context.WithCancel(context.Background())
 	clientSocket = zmq4.NewDealer(ctx, zmq4.WithAutomaticReconnect(true))
 	//try to connect to servers until one does connect
 	serverLock.Lock()
 	defer serverLock.Unlock()
-	for{
-		if len(suscribedServers) > 0{
+	for {
+		if len(suscribedServers) > 0 {
 			activeServer = suscribedServers[0]
 			suscribedServers = suscribedServers[1:]
 		}
 		log.Printf("Sending active server to: %s", activeServer)
-		if err := clientSocket.Dial(fmt.Sprintf("tcp://%s", activeServer)); err != nil{
+		if err := clientSocket.Dial(fmt.Sprintf("tcp://%s", activeServer)); err != nil {
 			log.Printf("Active server request failed to %s", activeServer)
 			continue
 		}

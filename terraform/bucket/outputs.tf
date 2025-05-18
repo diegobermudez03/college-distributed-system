@@ -8,7 +8,7 @@ output "lb_exe_obj_name"{
 }
 
 output "proxy_obj_name"{
-    value = "${google_storage_bucket_object.lb_exe.bucket}/${google_storage_bucket_object.lb_exe.name}"
+    value = "${google_storage_bucket_object.proxy_exe.bucket}/${google_storage_bucket_object.proxy_exe.name}"
 }
 
 ##### faculty and program exes
@@ -25,7 +25,7 @@ output "script_case1"{
     value =  "${google_storage_bucket_object.case1.bucket}/${google_storage_bucket_object.case1.name}"
 }
 
-output "script_case1"{
+output "script_case2"{
     value =  "${google_storage_bucket_object.case2.bucket}/${google_storage_bucket_object.case2.name}"
 }
 

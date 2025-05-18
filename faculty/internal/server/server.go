@@ -106,7 +106,7 @@ func (s *FacultyServer) SendReplies(channel chan models.DTIResponse){
 					ClientId: client.ClientId,
 					Status: clientResponse.StatusMessage,
 					ClassroomsAsigned: clientResponse.Classrooms,
-					LabsAsigned: client.Labs,
+					LabsAsigned: clientResponse.Labs,
 					MobileLabsAssigned: clientResponse.MobileLabs,
 				}
 				bytes, _ := json.Marshal(clientDTO)
