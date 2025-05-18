@@ -18,6 +18,7 @@ type CollegeServiceImpl struct {
 	Lock 		*sync.RWMutex //lock for retrieving the semester info, is Read Write since it depends on if we are reading or writing
 	Semester 	domain.SemesterAvailabilityModel
 	logWriterChannel chan *domain.AssignationModel
+	semesterCreated bool
 }
 
 func NewCollegeService(config *domain.ServiceConfig, repository repository.CollegeRepository) (domain.CollegeService, error) {
@@ -38,14 +39,12 @@ func NewCollegeService(config *domain.ServiceConfig, repository repository.Colle
 		Labs: config.Labs,
 		MobileLabs: config.MobileLabs,
 	}
-	if err := repository.CreateSemester(&semester); err != nil{
-		return nil, domain.ErrorStartingService
-	}
 	//create service
 	service := &CollegeServiceImpl{
 		repository: repository,
 		Semester: semester,
 		Lock: &sync.RWMutex{},
+		semesterCreated: false,
 	}
 	//start writers go routines and save the channel to communicate with them
 	logWriterChannel := service.startDbLogWriter()
@@ -124,6 +123,11 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 
 	//LOCK THE SEMESTER RESOURCES FOR THE PROCESSING
 	s.Lock.Lock()
+	//if not yet created the semester then we create it
+	if !s.semesterCreated{
+		s.repository.CreateSemester(&s.Semester)
+		s.semesterCreated = true
+	}
 
 	//with the logic below we can check all the assignation with or without mobile labs
 	mobileLabsNeeded := programResponse.RequestedLabs - s.Semester.Labs	//if with only the availala labs is enough, this will be 0 or negative
@@ -234,6 +238,7 @@ func (s *CollegeServiceImpl) startDbLogWriter()chan *domain.AssignationModel{
 				message.RemainingLabs,message.RemainingMobileLabs,
 			)
 			//save to db, blocking operation, however this is our purpose, to be the go routine blocked so the main ones are not
+			
 			s.repository.CreateAssignation(message)
 		}
 	}()

@@ -23,6 +23,7 @@ const (
 	numberFacultiesArg = "--num-faculties"
 	failSecondsArg = "--fail-seconds"
 	proxyArg = "--proxy-server"
+	nWorkersArg = "--n-workers"
 )
 
 func main() {
@@ -45,7 +46,7 @@ func main() {
 		ProxyServer: "",
 	}
 	failSeconds := 31536000
- 
+	nWorkers := 3
 	//iterate over arguments and read them
 	for _, arg := range os.Args {
 		if !strings.Contains(arg, "=") {
@@ -58,6 +59,7 @@ func main() {
 			switch parts[0]{
 			case semesterArg: config.Semester = parts[1]
 			case proxyArg: serverConfig.ProxyServer = parts[1]
+			case nWorkersArg: nWorkers = number
 			}
 			continue
 		}
@@ -113,7 +115,7 @@ func main() {
 	}
 
 	endChannel := make(chan bool)
-	server := transport.NewZeroMQServer(collegeService, serverConfig)
+	server := transport.NewLoadBServer(collegeService, serverConfig, nWorkers)
 	//start server
 	if err := server.Listen(); err != nil{
 		log.Fatal("Unable to start server at port: ", serverConfig.ListenPort, " error: ", err.Error())
