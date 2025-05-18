@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -92,5 +93,10 @@ func main() {
 
 	//wait until the faculty server and client indicates that we are done
 	wg.Wait()
+
+	//print all times
+	for _, times := range server.Milliseconds{
+		fmt.Println(times)
+	}
 }
 

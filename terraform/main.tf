@@ -39,41 +39,54 @@ module "db" {
 
 
 ##create vm for dti
-module "dti" {
-  source                  = "./vm"
-  vm_name                 = "dti-vm"
-  subnetwork_name         = module.vpc.west_subnet
-  network_name            = module.vpc.network_name
-  zone_name               = "us-west1-a"
-  program_exe_object_name = module.buckets.server_exe_obj_name
-  script_case1            = "-"
-  script_case2            = "-"
-  exec_name                = module.buckets.dti_exec_name
-  variables_export        = [
-    "echo 'export POSTGRES_HOST=${module.db.ip_address}' | sudo tee -a /etc/profile.d/env_vars.sh",
-    "echo 'export POSTGRES_PORT=5432' | sudo tee -a /etc/profile.d/env_vars.sh",
-    "echo 'export POSTGRES_USER=myuser' | sudo tee -a /etc/profile.d/env_vars.sh",
-    "echo 'export POSTGRES_PASSWORD=mypassword' | sudo tee -a /etc/profile.d/env_vars.sh",
-    "echo 'export POSTGRES_DB=college' | sudo tee -a /etc/profile.d/env_vars.sh",
-    "echo 'export POSTGRES_SSL_MODE=disable' | sudo tee -a /etc/profile.d/env_vars.sh",
-    "echo 'export POSTGRES_TIMEZONE=UTC' | sudo tee -a /etc/profile.d/env_vars.sh"
-  ]
+module "backend" {
+  source                  = "./backend"
+  subnet1_name = module.vpc.west_subnet
+  subnet2_name = module.vpc.east_subnet
+  zone1_name = "us-west1-a"
+  zone2_name = "us-east1-b"
+  network_name = module.vpc.network_name
+  req_rep_obj = module.buckets.req_rep_exe_obj
+  req_rep_name = module.buckets.req_rep_exec_name
+  lb_obj = module.buckets.lb_exe_obj
+  lb_name = module.buckets.lb_exec_name
+  proxy_obj = module.buckets.proxy_obj_name
+  proxy_name = module.buckets.proxy_exec_name
 }
 
-##create vm for faculties
-module "faculties" {
-  source                  = "./vm"
-  vm_name                 = "faculties-vm"
-  subnetwork_name         = module.vpc.east_subnet
-  network_name            = module.vpc.network_name
-  zone_name               = "us-east1-b"
-  program_exe_object_name = module.buckets.faculty_exe_obj_name
-  script_case1             = module.buckets.faculty_script_case1
-  script_case2             = module.buckets.faculty_script_case2
-  exec_name = module.buckets.fac_exec_name
-  variables_export        = [ 
-    "echo 'export DTI_ADDRESS=${module.dti.ip_address}' | sudo tee /etc/profile.d/env_vars.sh"
-  ]
+##create vm for faculties and programs
+resource "google_compute_instance" "gce_vm"{
+    name = "clients-vm"
+    machine_type = "custom-4-3840"
+    zone = "us-east1-b"
+    boot_disk {
+        initialize_params {
+            image = "debian-cloud/debian-12"
+        }
+    }
+    network_interface {
+        network = module.vpc.network_name
+        subnetwork = module.vpc.east_subnet
+    }
+    service_account {
+      email = "365518882403-compute@developer.gserviceaccount.com"
+      scopes = [
+        "https://www.googleapis.com/auth/cloud-platform",
+        ]
+    }
+    metadata={
+        startup-script = <<-EOF
+        #!/bin/bash
+        gcloud storage cp gs://${module.buckets.faculty_exe_obj_name} ./home/
+        gcloud storage cp gs://${module.buckets.program_exe_obj_name} ./home/
+        gcloud storage cp gs://${module.buckets.script_case1} ./home/
+        gcloud storage cp gs://${module.buckets.script_case2} ./home/
+        chmod +x ./home/${module.buckets.fac_exec_name}
+        chmod +x ./home/${module.buckets.program_exec_name}
+        echo 'export DTI_ADDRESS=${module.backend.proxy_address}' | sudo tee /etc/profile.d/env_vars.sh
+        source /etc/profile.d/env_vars.sh
+        EOF
+    }
 }
 
 

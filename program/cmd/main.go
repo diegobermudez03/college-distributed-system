@@ -94,11 +94,17 @@ func main() {
 		log.Fatal("Internal error processing request")
 	}
 	message := zmq4.NewMsgString(string(jsonMessage))
+
+	////////////////////	SENDING REQUEST AND TAKING TIME ////////////////////////
+	when := time.Now()
 	socket.Send(message)
 	//request sent to the faculty with JSON structure
 
 	//wait for response
 	response, err := socket.Recv()
+	since := time.Since(when).Milliseconds()
+	////////////////////	SENDING REQUEST AND TAKING TIME ////////////////////////
+
 	if err != nil{
 		log.Fatal("Error with request ", err.Error())
 	}
@@ -132,8 +138,9 @@ func main() {
 	ASSIGNED LABS: %d
 	HOW MANY OF THE LABS ARE MOBILE LABS (CLASSROOMS WITH PC'S): %d
 	STATUS: %s
+	MILLISECONDS: %d
 	`, request.ProgramName, request.Semester, *request.Classrooms, *request.Labs,
-	responseJson.ClassroomsAsigned, responseJson.LabsAsigned, responseJson.MobileLabsAssigned, responseJson.Status)
+	responseJson.ClassroomsAsigned, responseJson.LabsAsigned, responseJson.MobileLabsAssigned, responseJson.Status, since)
 
 	//create file and store message
 	file, err := os.Create(fmt.Sprintf("%s_%s.txt", request.ProgramName, request.Semester))

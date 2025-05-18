@@ -1,3 +1,4 @@
+# CREATE THE BUCKETS
 resource "google_storage_bucket" "executables"{
     name = "ds-2025-10-executables"
     location = "us-central1"
@@ -12,14 +13,27 @@ resource "google_storage_bucket" "scripts"{
     uniform_bucket_level_access = true
 }
 
-
-#load executables to objects
-resource "google_storage_bucket_object" "server_exe" {
-  name   = "dti"
+# CREATE THE OBJECTS
+#load server executables (including proxy)
+resource "google_storage_bucket_object" "req_rep_exe" {
+  name   = "reqrep"
   bucket = google_storage_bucket.executables.name
-  source = "../dti/server/bin/dti"
+  source = "../dti/server/bin/reqrep"
 }
 
+resource "google_storage_bucket_object" "lb_exe" {
+  name   = "lb"
+  bucket = google_storage_bucket.executables.name
+  source = "../dti/server/bin/lb"
+}
+
+resource "google_storage_bucket_object" "proxy_exe" {
+  name   = "proxy"
+  bucket = google_storage_bucket.executables.name
+  source = "../dti/proxy/bin/proxy"
+}
+
+#faculty and program exes
 resource "google_storage_bucket_object" "faculty_exe" {
   name   = "fac"
   bucket = google_storage_bucket.executables.name
@@ -33,29 +47,18 @@ resource "google_storage_bucket_object" "program_exe" {
 }
 
 #load scripts
-resource "google_storage_bucket_object" "program_case1" {
-  name   = "case1_programs.py"
+resource "google_storage_bucket_object" "case1" {
+  name   = "case1.py"
   bucket = google_storage_bucket.scripts.name
-  source = "../test-cases/case1/case1_programs.py"
+  source = "../test-cases/case1.py"
 }
 
-resource "google_storage_bucket_object" "faculty_case1" {
-  name   = "case1_faculties.py"
+resource "google_storage_bucket_object" "case2" {
+  name   = "case2.py"
   bucket = google_storage_bucket.scripts.name
-  source = "../test-cases/case1/case1_faculties.py"
+  source = "../test-cases/case2.py"
 }
 
-resource "google_storage_bucket_object" "program_case2" {
-  name   = "case2_programs.py"
-  bucket = google_storage_bucket.scripts.name
-  source = "../test-cases/case2/case2_programs.py"
-}
-
-resource "google_storage_bucket_object" "faculty_case2" {
-  name   = "case2_faculties.py"
-  bucket = google_storage_bucket.scripts.name
-  source = "../test-cases/case2/case2_faculties.py"
-}
 
 #load docker compose file
 resource "google_storage_bucket_object" "docker_compose" {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/diegobermudez03/college-distributed-system/faculty/internal/client"
 	"github.com/diegobermudez03/college-distributed-system/faculty/internal/models"
@@ -26,6 +27,8 @@ type FacultyServer struct {
 	minPrograms int
 	semester string
 	semesters map[string]map[uuid.UUID]models.ProgramRequest	//map of semesters, each one with its clients
+	times map[string] time.Time
+	Milliseconds map[string]int64
 	client *client.FacultyClient
 	socket zmq4.Socket
 	closeServerWg *sync.WaitGroup
@@ -36,6 +39,8 @@ func NewFacultyServer(listenPort, minPrograms int, semester string, client *clie
 		listenPort: listenPort,
 		minPrograms: minPrograms,
 		semesters: map[string]map[uuid.UUID]models.ProgramRequest{},
+		times: map[string] time.Time{},
+		Milliseconds: map[string]int64{},
 		semester: semester,
 		client: client,
 		closeServerWg: &sync.WaitGroup{},
@@ -86,6 +91,9 @@ func (s *FacultyServer) SendReplies(channel chan models.DTIResponse){
 			if !ok{
 				continue
 			}
+			timeP := s.times[response.Semester]
+			elapsed := time.Since(timeP)
+			s.Milliseconds[response.Semester] = elapsed.Milliseconds()
 			//iterate over all responses, get the socket ID for each one, and then send the JSON response
 			for _, clientResponse := range response.Programs{
 				client, ok := semesterPrograms[clientResponse.ProgramId]
@@ -154,6 +162,7 @@ func (s *FacultyServer) listenProgramRequests(channel chan models.SemesterReques
 		if !ok{
 			semesterPrograms = map[uuid.UUID]models.ProgramRequest{}
 			s.semesters[programRequest.Semester] = semesterPrograms
+			s.times[programRequest.Semester] = time.Now()
 		}
 		semesterPrograms[programRequest.ClientId] = programRequest
 		//if the semester is complete, then we redirect it to the DTI request, we use a new go routine (thread)
