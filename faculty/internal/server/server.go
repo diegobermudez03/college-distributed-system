@@ -94,28 +94,12 @@ func (s *FacultyServer) SendReplies(channel chan models.DTIResponse){
 					continue 
 				}
 				//transform the response into the valid dto and answer to the program
-				var clientDTO models.ProgramResponse
-				if response.ErrorFound{
-					clientDTO = models.ProgramResponse{
-						ClientId: client.ClientId,
-						Status: response.ErrorMessage,
-						ClassroomsAsigned: 0,
-						LabsAsigned: 0,
-						MobileLabsAssigned: 0,
-						ErrorRequest: true,
-					}
-				}else{
-					clientDTO = models.ProgramResponse{
-						ClientId: client.ClientId,
-						Status: clientResponse.StatusMessage,
-						ClassroomsAsigned: clientResponse.Classrooms,
-						LabsAsigned: client.Labs,
-						MobileLabsAssigned: clientResponse.MobileLabs,
-						ErrorRequest: false,
-					}
-					if clientDTO.Status != "OK"{
-						clientDTO.ErrorRequest = true
-					}
+				clientDTO := models.ProgramResponse{
+					ClientId: client.ClientId,
+					Status: clientResponse.StatusMessage,
+					ClassroomsAsigned: clientResponse.Classrooms,
+					LabsAsigned: client.Labs,
+					MobileLabsAssigned: clientResponse.MobileLabs,
 				}
 				bytes, _ := json.Marshal(clientDTO)
 				s.socket.Send(zmq4.NewMsgFrom(client.ClientSocketId, bytes))
@@ -160,7 +144,6 @@ func (s *FacultyServer) listenProgramRequests(channel chan models.SemesterReques
 			errorResponse := models.ProgramResponse{
 				ClientId: programRequest.ClientId,
 				Status: invalidSemester,
-				ErrorRequest: true,
 			}
 			errorBytes, _ := json.Marshal(errorResponse)
 			s.socket.Send(zmq4.NewMsgFrom(programRequest.ClientSocketId, errorBytes))

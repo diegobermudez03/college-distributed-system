@@ -140,6 +140,7 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 	programResponse.Classrooms = programResponse.RequestedClassrooms
 	programResponse.Labs = programResponse.RequestedLabs - mobileLabsNeeded
 	programResponse.MobileLabs = mobileLabsNeeded
+	programResponse.StatusMessage = domain.OkMsg
 
 	//if either classrooms or labs are more than available, we generate the error and assign the available ones
 	if mobileLabsNeeded > s.Semester.MobileLabs || programResponse.RequestedClassrooms > remainingClassrooms{

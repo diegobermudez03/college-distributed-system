@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 	"sync"
@@ -53,19 +52,16 @@ func (s *LoadBServer) Listen() error {
 		//establish connection with the faculty
 		conn, err := net.Dial("tcp", s.proxyServer)
 		if err != nil{
-			log.Print(err.Error())
 			return errors.New("unable to suscribe with proxy")
 		}
 		message := strconv.Itoa(s.port) + "\n"
 		_, err = conn.Write([]byte(message))
 		if err != nil{
-			log.Print(err.Error())
 			return errors.New("unable to suscribe with proxy")
 		}
 		reader := bufio.NewReader(conn)
 		response, err := reader.ReadString('\n')
 		if err != nil{
-			log.Print(err.Error())
 			return errors.New("unable to suscribe with proxy")
 		}
 		if response != "OK\n"{
@@ -124,23 +120,18 @@ func (s *LoadBServer) worker(ctx context.Context ,goRoutineId int){
 		}
 		clientRequestBytes := message.Frames[1]
 		clientRequest := domain.DTIRequestDTO{}
-		log.Print("before health check")
 
 		////////////  HEALTH CHECK VALIDATION  //////////////////////////////////////////
 		//if message wasnt a request, we check if it was a HEALTH CHECK
 		if err := json.Unmarshal(clientRequestBytes, &clientRequest); err != nil || clientRequest.Semester==""{
 			hCheck := HealthCheckDTO{}
-			log.Print("in the health check")
 			if err := json.Unmarshal(clientRequestBytes, &hCheck); err != nil{
-				log.Print(err.Error())
 				continue 
 			}
 			//if it was a health check, we answer with a simple 1 byte
-			log.Println("ANSWERING HEALTH CHECK")
 			socket.Send(zmq4.NewMsgFrom(clientIdentity, []byte{1}))
 			continue 
 		}
-		log.Print("after healthcheck")
 		////////////  HEALTH CHECK VALIDATION  //////////////////////////////////////////
 
 		//process message with the service

@@ -10,12 +10,11 @@ type SemesterRequest struct{
 
 //SERVER DTOS FOR COMMUNICATION WITH PROGRAMS
 type ProgramResponse struct {
-	ClientId 		  uuid.UUID  `json:"-"`
-	Status            string `json:"status"`
-	ClassroomsAsigned int    `json:"classrooms-assigned"`
-	LabsAsigned       int    `json:"labs-assigned"`
-	MobileLabsAssigned int 	 `json:"mobile-labs-assigned"`
-	ErrorRequest 	  bool 		`json:"error-request"`
+	ClientId 		  uuid.UUID `json:"-"`
+	Status            string 	`json:"status"`
+	ClassroomsAsigned int    	`json:"classrooms-assigned"`
+	LabsAsigned       int    	`json:"labs-assigned"`
+	MobileLabsAssigned int 	 	`json:"mobile-labs-assigned"`
 }
 
 type ProgramRequest struct {
@@ -52,9 +51,12 @@ type DTIResponse struct{
 }
 
 type DTIProgramResponse struct{
-	ProgramId 	uuid.UUID 	`json:"program-id"`
-	Classrooms 	int `json:"classrooms"`
-	Labs 		int `json:"labs"`
+	ProgramId     uuid.UUID `json:"program-id"`
+	ProgramName 	string 	`json:"program-name"`
+	RequestedClassrooms 	int 	`json:"requested-classrooms"`
+	RequestedLabs 			int 	`json:"requested-labs"`
+	Classrooms    int       `json:"classrooms"`
+	Labs          int       `json:"labs"`
 	MobileLabs    int       `json:"mobile-labs"`
-	StatusMessage string `json:"status-message"`
+	StatusMessage string    `json:"status-message"`
 }

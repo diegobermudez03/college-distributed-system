@@ -60,14 +60,12 @@ func main() {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	if err := listenForSuscriptions(susPort, &wg); err != nil{
-		fmt.Println("1")
 		log.Fatal(err.Error())
 	}
 	wg.Wait() //wait for having at least 1 server
 	//start the server for ZeroMQ
 	messageChannel := make(chan [][]byte)
 	if err := listenForZeroMQClients(port, messageChannel); err != nil{
-		fmt.Println("2")
 		log.Fatal(err.Error())
 	}
 
@@ -75,7 +73,6 @@ func main() {
 	healthCheckChannel := make(chan bool)
 	go startHealthCheck(healthCheckChannel, healthTicker)
 	if err := startZeroMQClient(messageChannel, healthCheckChannel); err != nil{
-		fmt.Println("3")
 		log.Fatal(err.Error())
 	}
 }
@@ -134,9 +131,10 @@ func listenForSuscriptions(susPort string, wg *sync.WaitGroup) error{
 */
 func listenForZeroMQClients(port string, channel chan [][]byte) error{
 	socket := zmq4.NewRouter(context.Background())
-	if err := socket.Listen(fmt.Sprintf("tcp://*%s", port)); err != nil {
+	if err := socket.Listen(fmt.Sprintf("tcp://127.0.0.1%s", port)); err != nil {
 		return err
 	}
+	log.Printf("Listening for clients on: %s", socket.Addr().String())
 	serverSocket = socket
 	//listen to all messages received
 	go func(){
@@ -172,27 +170,21 @@ func startZeroMQClient(channel chan [][]byte, healthCheck chan bool)error{
 
 	//start listener for server responses
 	for{
-		log.Print("listening in the clientsocket")
 		if clientSocket == nil{
 			continue
 		}
 		response, err := clientSocket.Recv()
-		log.Print("message received")
 		if err != nil{
 			clientSocket = nil
-			fmt.Println("in the err != nil")
-			log.Print(err.Error())
 			continue
 		}
 		//if it was a healthcheck
-		log.Print("before chekcing 1")
 		if response.Frames[0][0] == 1{
 			healthCheck <- true
 			continue 
 		}
-		log.Print("after checking 1")
 		//if it wasnt a health check but an actual response
-		clientId, err := uuid.Parse(string(response.Frames[2]))
+		clientId, err := uuid.Parse(string(response.Frames[1]))
 		if err != nil{
 			continue
 		}
@@ -200,7 +192,7 @@ func startZeroMQClient(channel chan [][]byte, healthCheck chan bool)error{
 		if  !ok{
 			continue
 		}
-		serverSocket.Send(zmq4.NewMsgFrom(clientIdentity, response.Frames[1]))
+		serverSocket.Send(zmq4.NewMsgFrom(clientIdentity, response.Frames[0]))
 		delete(activeClients, clientId)
 	}
 	return nil
@@ -257,7 +249,6 @@ func stablishConnection(){
 		log.Printf("Sending active server to: %s", activeServer)
 		if err := clientSocket.Dial(fmt.Sprintf("tcp://%s", activeServer)); err != nil{
 			log.Printf("Active server request failed to %s", activeServer)
-			log.Print(err.Error())
 			continue
 		}
 		log.Printf("active server switched to %s", activeServer)
