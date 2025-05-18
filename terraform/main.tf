@@ -88,20 +88,3 @@ resource "google_compute_instance" "gce_vm"{
         EOF
     }
 }
-
-
-##create vm for programs
-module "programs" {
-  source                  = "./vm"
-  vm_name                 = "programs-vm"
-  subnetwork_name         = module.vpc.central_subnet
-  network_name            = module.vpc.network_name
-  zone_name               = "us-central1-a"
-  program_exe_object_name = module.buckets.program_exe_obj_name
-  script_case1             = module.buckets.program_script_case1
-  script_case2             = module.buckets.program_script_case2
-  exec_name = module.buckets.program_exec_name
-  variables_export        = [
-    "echo 'export FAC_ADDRESS=${module.faculties.ip_address}' | sudo tee /etc/profile.d/env_vars.sh"
-  ]
-}
