@@ -16,28 +16,28 @@ import (
 )
 
 type LoadBServer struct {
-	port           int
-	service        domain.CollegeService
-	frontend       zmq4.Socket
-	counter        int
-	endChannel     chan bool
-	proxyServer    string
-	faculties      int
-	lock           sync.Mutex
-	nWorkers       int
-	backendAddress string
+	port        int
+	service     domain.CollegeService
+	socket      zmq4.Socket
+	counter     int
+	endChannel  chan bool
+	proxyServer string
+	faculties   int
+	lock        sync.Mutex
+	nWorkers	 int 
+	channels 	[]chan zmq4.Msg
 }
 
 func NewLoadBServer(service domain.CollegeService, config domain.ServerConfig, nWorkers int) *LoadBServer {
 	return &LoadBServer{
-		port:           config.ListenPort,
-		service:        service,
-		faculties:      config.NumFaculties,
-		endChannel:     config.EndChannel,
-		proxyServer:    config.ProxyServer,
-		lock:           sync.Mutex{},
-		nWorkers:       nWorkers,
-		backendAddress: "inproc://backend",
+		port:        config.ListenPort,
+		service:     service,
+		faculties:   config.NumFaculties,
+		endChannel:  config.EndChannel,
+		proxyServer: config.ProxyServer,
+		lock:        sync.Mutex{},
+		nWorkers: nWorkers,
+		channels: []chan zmq4.Msg{},
 	}
 }
 
@@ -74,41 +74,38 @@ func (s *LoadBServer) Listen() error {
 		conn.Close()
 	}
 
-	ctx, _ := context.WithCancel(context.Background())
 	//create zeromq socket and listen in the given port
-	frontend := zmq4.NewRouter(ctx)
-	s.frontend = frontend
-	if err := frontend.Listen(fmt.Sprintf("tcp://*:%d", s.port)); err != nil {
+	socket := zmq4.NewRouter(context.Background())
+	s.socket = socket
+	if err := socket.Listen(fmt.Sprintf("tcp://*:%d", s.port)); err != nil {
 		return err
 	}
-	backend := zmq4.NewDealer(ctx)
-	if err := backend.Listen(s.backendAddress); err != nil {
-		return err
+	log.Print("Listening on port: ", s.port)
+	//initialize workers
+	for i := 0; i < s.nWorkers; i++{
+		channel := make(chan zmq4.Msg)
+		s.channels = append(s.channels, channel)
+		go s.worker(channel, i+1)
 	}
-
-	for i := 0; i < s.nWorkers; i++ {
-		go s.worker(ctx, i)
-	}
-
-	zmq4.NewProxy(ctx, frontend, backend, nil).Run()
+	go func() {
+		defer socket.Close()
+		nexInLine := 0
+		for {
+			message, err := socket.Recv()
+			if err == nil{
+				s.channels[nexInLine] <- message
+				nexInLine = (nexInLine + 1) % s.nWorkers
+			}
+		}
+	}()
 	return nil
 }
 
-/*
-Method for the workers
-*/
-func (s *LoadBServer) worker(ctx context.Context, goRoutineId int) {
-	socket := zmq4.NewDealer(ctx)
-	defer socket.Close()
-	if err := socket.Dial(s.backendAddress); err != nil {
-		return
-	}
 
-	for {
-		message, err := socket.Recv()
-		if err != nil {
-			continue
-		}
+// internal method to process each request message, it validates the message and communicates with the service
+func (s *LoadBServer) worker(channel chan zmq4.Msg, goRoutineId int) {
+	//if there was an error with the mesage we ignore it then
+	for message := range channel{
 		clientIdentity := message.Frames[0]
 
 		//for proxy purposes
@@ -119,7 +116,7 @@ func (s *LoadBServer) worker(ctx context.Context, goRoutineId int) {
 		//read request body
 		//if the message is of acceptance, then we ignore
 		if string(message.Frames[1]) == "ACCEPT" {
-			continue
+			return
 		}
 		clientRequestBytes := message.Frames[1]
 		clientRequest := domain.DTIRequestDTO{}
@@ -129,12 +126,12 @@ func (s *LoadBServer) worker(ctx context.Context, goRoutineId int) {
 		if err := json.Unmarshal(clientRequestBytes, &clientRequest); err != nil || clientRequest.Semester == "" {
 			hCheck := HealthCheckDTO{}
 			if err := json.Unmarshal(clientRequestBytes, &hCheck); err != nil {
-				continue
+				return
 			}
 			//if it was a health check, we answer with a simple 1 byte
 			log.Print("ANSWERING HEALTH CHECK")
-			socket.Send(zmq4.NewMsgFrom(clientIdentity, []byte{1}))
-			continue
+			s.socket.Send(zmq4.NewMsgFrom(clientIdentity, []byte{1}))
+			return
 		}
 		////////////  HEALTH CHECK VALIDATION  //////////////////////////////////////////
 
@@ -161,7 +158,6 @@ func (s *LoadBServer) worker(ctx context.Context, goRoutineId int) {
 			responseBytes, _ = json.Marshal(response)
 		}
 		//send message with client ID (if recived one, means, we are using proxy)
-		socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes, clientId))
+		s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes, clientId))
 	}
-
 }
