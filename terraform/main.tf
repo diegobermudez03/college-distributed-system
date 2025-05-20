@@ -28,23 +28,23 @@ module "vpc" {
 }
 
 ##create db vm host
-module "db" {
-  source          = "./db_vm"
-  vm_name         = "db-vm"
-  script_name     = module.buckets.docker_compose_name
-  subnetwork_name = module.vpc.west_subnet
-  network_name    = module.vpc.network_name
-  zone_name       = "us-west1-a"
-}
+#module "db" {
+#  source          = "./db_vm"
+#  vm_name         = "db-vm"
+#  script_name     = module.buckets.docker_compose_name
+#  subnetwork_name = module.vpc.central_subnet
+#  network_name    = module.vpc.network_name
+#  zone_name       = "us-central1-a"
+#}
 
 
 ##create vm for dti
 module "backend" {
   source                  = "./backend"
-  subnet1_name = module.vpc.west_subnet
-  subnet2_name = module.vpc.east_subnet
-  zone1_name = "us-west1-a"
-  zone2_name = "us-east1-b"
+  subnet1_name = module.vpc.central_subnet
+  subnet2_name = module.vpc.central_subnet
+  zone1_name = "us-central1-a"
+  zone2_name = "us-central1-a"
   network_name = module.vpc.network_name
   req_rep_obj = module.buckets.req_rep_exe_obj_name
   req_rep_name = module.buckets.req_rep_exec_name
@@ -52,14 +52,15 @@ module "backend" {
   lb_name = module.buckets.lb_exec_name
   proxy_obj = module.buckets.proxy_obj_name
   proxy_name = module.buckets.proxy_exec_name
-  db_address = module.db.ip_address
+  #db_address = module.db.ip_address
+  db_address = "127.0.0.1"
 }
 
 ##create vm for faculties and programs
 resource "google_compute_instance" "clients_vm"{
     name = "clients-vm"
-    machine_type = "custom-4-3840"
-    zone = "us-east1-b"
+    machine_type = "e2-standard-2"
+    zone = "us-central1-a"
     boot_disk {
         initialize_params {
             image = "debian-cloud/debian-12"
@@ -67,7 +68,7 @@ resource "google_compute_instance" "clients_vm"{
     }
     network_interface {
         network = module.vpc.network_name
-        subnetwork = module.vpc.east_subnet
+        subnetwork = module.vpc.central_subnet
     }
     service_account {
       email = "365518882403-compute@developer.gserviceaccount.com"

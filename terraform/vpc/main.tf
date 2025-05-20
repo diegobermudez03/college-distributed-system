@@ -11,23 +11,6 @@ resource "google_compute_subnetwork" "us-central-vpc"{
     network = google_compute_network.college_vpc.self_link
 }
 
-resource "google_compute_subnetwork" "us-east-vpc"{
-    name = "us-east-vpc"
-    region = "us-east1"
-    ip_cidr_range = "10.2.0.0/16"
-    private_ip_google_access = true
-    network = google_compute_network.college_vpc.self_link
-}
-
-resource "google_compute_subnetwork" "us-west-vpc"{
-    name = "us-west-vpc"
-    region = "us-west1"
-    ip_cidr_range = "10.3.0.0/16"
-    private_ip_google_access = true
-    network = google_compute_network.college_vpc.self_link
-}
-
-
 ##create firewall rules
 resource "google_compute_firewall" "firewall_rules"{
     name = "vpc-fireall-rules"

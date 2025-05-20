@@ -24,8 +24,8 @@ type LoadBServer struct {
 	proxyServer string
 	faculties   int
 	lock        sync.Mutex
-	nWorkers	 int 
-	channels 	[]chan zmq4.Msg
+	nWorkers    int
+	channels    []chan zmq4.Msg
 }
 
 func NewLoadBServer(service domain.CollegeService, config domain.ServerConfig, nWorkers int) *LoadBServer {
@@ -36,8 +36,8 @@ func NewLoadBServer(service domain.CollegeService, config domain.ServerConfig, n
 		endChannel:  config.EndChannel,
 		proxyServer: config.ProxyServer,
 		lock:        sync.Mutex{},
-		nWorkers: nWorkers,
-		channels: []chan zmq4.Msg{},
+		nWorkers:    nWorkers,
+		channels:    []chan zmq4.Msg{},
 	}
 }
 
@@ -76,13 +76,14 @@ func (s *LoadBServer) Listen() error {
 
 	//create zeromq socket and listen in the given port
 	socket := zmq4.NewRouter(context.Background())
+	socket.SetOption(zmq4.OptionHWM, 10000000)
 	s.socket = socket
 	if err := socket.Listen(fmt.Sprintf("tcp://*:%d", s.port)); err != nil {
 		return err
 	}
 	log.Print("Listening on port: ", s.port)
 	//initialize workers
-	for i := 0; i < s.nWorkers; i++{
+	for i := 0; i < s.nWorkers; i++ {
 		channel := make(chan zmq4.Msg)
 		s.channels = append(s.channels, channel)
 		go s.worker(channel, i+1)
@@ -92,7 +93,7 @@ func (s *LoadBServer) Listen() error {
 		nexInLine := 0
 		for {
 			message, err := socket.Recv()
-			if err == nil{
+			if err == nil {
 				s.channels[nexInLine] <- message
 				nexInLine = (nexInLine + 1) % s.nWorkers
 			}
@@ -101,11 +102,10 @@ func (s *LoadBServer) Listen() error {
 	return nil
 }
 
-
 // internal method to process each request message, it validates the message and communicates with the service
 func (s *LoadBServer) worker(channel chan zmq4.Msg, goRoutineId int) {
 	//if there was an error with the mesage we ignore it then
-	for message := range channel{
+	for message := range channel {
 		clientIdentity := message.Frames[0]
 
 		//for proxy purposes
@@ -118,6 +118,7 @@ func (s *LoadBServer) worker(channel chan zmq4.Msg, goRoutineId int) {
 		if string(message.Frames[1]) == "ACCEPT" {
 			return
 		}
+		fmt.Printf("-----------receiving request to process from goroutine %d\n", goRoutineId)
 		clientRequestBytes := message.Frames[1]
 		clientRequest := domain.DTIRequestDTO{}
 
@@ -147,17 +148,26 @@ func (s *LoadBServer) worker(channel chan zmq4.Msg, goRoutineId int) {
 			}
 			responseBytes, _ = json.Marshal(errorResponse)
 		} else {
-			//check if we completed all the faculties so we send the end signal
-			s.lock.Lock()
-			s.counter++
-			if s.counter == s.faculties {
-				s.endChannel <- true
-			}
-			s.lock.Unlock()
 			//send response to the spceified client
 			responseBytes, _ = json.Marshal(response)
 		}
 		//send message with client ID (if recived one, means, we are using proxy)
-		s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes, clientId))
+		fmt.Printf("***************GO ROUTINE %d IS GOING TO SEND ANSWER FROM REQUEST\n", goRoutineId)
+		if err := s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes, clientId)); err != nil {
+			log.Printf("ERROR SENDING aANSWERRRRRRRRRRR %v", err.Error())
+			continue
+		}
+		fmt.Printf("++++++++++GO ROUTINE %d FINISHED WITH REQUEST\n", goRoutineId)
+		if err != nil {
+			//check if we completed all the faculties so we send the end signal
+			s.lock.Lock()
+			s.counter++
+			if s.counter == s.faculties {
+				fmt.Printf("SENMDING ENDING SIGNALLLLLLLLLLLL goroutine %d\n", goRoutineId)
+				s.lock.Unlock()
+				s.endChannel <- true
+			}
+			s.lock.Unlock()
+		}
 	}
 }

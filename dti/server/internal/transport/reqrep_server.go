@@ -73,6 +73,7 @@ func (s *ReqRepServer) Listen() error {
 
 	//create zeromq socket and listen in the given port
 	socket := zmq4.NewRouter(context.Background())
+	socket.SetOption(zmq4.OptionHWM, 10000000)
 	s.socket = socket
 	if err := socket.Listen(fmt.Sprintf("tcp://*:%d", s.port)); err != nil {
 		return err
@@ -128,6 +129,7 @@ func (s *ReqRepServer) processMessage(message zmq4.Msg, err error) {
 
 	//process message with the service
 	response, err := s.service.ProcessRequest(clientRequest, goRoutineId)
+	log.Print("IT EXITED THE FUNCTION ProcessRequest")
 	var responseBytes []byte
 	if err != nil {
 		//if there was an error, we send it in the authorized format
@@ -149,5 +151,9 @@ func (s *ReqRepServer) processMessage(message zmq4.Msg, err error) {
 		responseBytes, _ = json.Marshal(response)
 	}
 	//send message with client ID (if recived one, means, we are using proxy)
-	s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes, clientId))
+	if err := s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes, clientId)); err != nil {
+		log.Printf("ERROR SENDING aANSWERRRRRRRRRRR %v", err.Error())
+	} else {
+		log.Print("ANSWEER SENTTTTTTTTTTTTTTTTTT")
+	}
 }
