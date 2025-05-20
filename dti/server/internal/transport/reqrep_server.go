@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
@@ -107,7 +108,7 @@ func (s *ReqRepServer) processMessage(message zmq4.Msg, err error) {
 	}
 	//read request body
 	//if the message is of acceptance, then we ignore
-	if string(message.Frames[1]) == "ACCEPT" {
+	if strings.Contains(string(message.Frames[1]),  "ACCEPT" ){
 		return
 	}
 	clientRequestBytes := message.Frames[1]
@@ -140,14 +141,6 @@ func (s *ReqRepServer) processMessage(message zmq4.Msg, err error) {
 		}
 		responseBytes, _ = json.Marshal(errorResponse)
 	} else {
-		//check if we completed all the faculties so we send the end signal
-		s.lock.Lock()
-		s.counter++
-		if s.counter == s.faculties {
-			s.endChannel <- true
-		}
-		s.lock.Unlock()
-		//send response to the spceified client
 		responseBytes, _ = json.Marshal(response)
 	}
 	//send message with client ID (if recived one, means, we are using proxy)
@@ -155,5 +148,17 @@ func (s *ReqRepServer) processMessage(message zmq4.Msg, err error) {
 		log.Printf("ERROR SENDING aANSWERRRRRRRRRRR %v", err.Error())
 	} else {
 		log.Print("ANSWEER SENTTTTTTTTTTTTTTTTTT")
+	}
+
+	if err == nil {
+		//check if we completed all the faculties so we send the end signal
+		s.lock.Lock()
+		s.counter++
+		if s.counter == s.faculties {
+			s.lock.Unlock()
+			s.endChannel <- true
+		}else{
+			s.lock.Unlock()
+		}
 	}
 }

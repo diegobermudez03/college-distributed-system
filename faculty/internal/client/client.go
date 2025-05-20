@@ -84,8 +84,8 @@ func (c *FacultyClient) ListenResponses(wg *sync.WaitGroup, listenerChannel chan
 			}
 			log.Printf("Received DTI response for semester %s", dtiResponse.Semester)
 			//send accept message with the specified semester
-			acceptMsg := fmt.Sprintf("%s-%s", acceptMessage, dtiResponse.Semester)
-			c.socket.Send(zmq4.NewMsgString(acceptMsg))
+			//acceptMsg := fmt.Sprintf("%s-%s", acceptMessage, dtiResponse.Semester)
+			//c.socket.Send(zmq4.NewMsgString(acceptMsg))
 			//send response in channel for server to handle the response to the programs
 			channel <- dtiResponse
 			//if we had a specified semester, then after this semester we simply close the channel

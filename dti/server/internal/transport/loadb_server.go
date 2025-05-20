@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
@@ -115,10 +116,9 @@ func (s *LoadBServer) worker(channel chan zmq4.Msg, goRoutineId int) {
 		}
 		//read request body
 		//if the message is of acceptance, then we ignore
-		if string(message.Frames[1]) == "ACCEPT" {
+		if strings.Contains(string(message.Frames[1]),  "ACCEPT" ){
 			return
 		}
-		fmt.Printf("-----------receiving request to process from goroutine %d\n", goRoutineId)
 		clientRequestBytes := message.Frames[1]
 		clientRequest := domain.DTIRequestDTO{}
 
@@ -152,22 +152,19 @@ func (s *LoadBServer) worker(channel chan zmq4.Msg, goRoutineId int) {
 			responseBytes, _ = json.Marshal(response)
 		}
 		//send message with client ID (if recived one, means, we are using proxy)
-		fmt.Printf("***************GO ROUTINE %d IS GOING TO SEND ANSWER FROM REQUEST\n", goRoutineId)
 		if err := s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes, clientId)); err != nil {
-			log.Printf("ERROR SENDING aANSWERRRRRRRRRRR %v", err.Error())
 			continue
 		}
-		fmt.Printf("++++++++++GO ROUTINE %d FINISHED WITH REQUEST\n", goRoutineId)
-		if err != nil {
+		if err == nil {
 			//check if we completed all the faculties so we send the end signal
 			s.lock.Lock()
 			s.counter++
 			if s.counter == s.faculties {
-				fmt.Printf("SENMDING ENDING SIGNALLLLLLLLLLLL goroutine %d\n", goRoutineId)
 				s.lock.Unlock()
 				s.endChannel <- true
+			}else{
+				s.lock.Unlock()
 			}
-			s.lock.Unlock()
 		}
 	}
 }

@@ -98,7 +98,7 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 	}
 	//now that we are sure that we have the semester info, we iterate over the faculty request programs
 	for _, program := range request.Programs {
-		programName := s.convertToBasicString(program.ProgramName)
+		//programName := s.convertToBasicString(program.ProgramName)
 
 		//create base of program response
 		programResponse := domain.DTIProgramResponseDTO{
@@ -110,7 +110,6 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 
 		//if the program isnt a valid faculty program, we add it as a program error
 		response.Programs = s.processProgramRequest(response.Programs, programResponse, goRoutineId)
-		log.Print(programName)
 		/*if _, ok := facultyPrograms[programName]; !ok {
 			programResponse.StatusMessage = domain.InvalidProgramMsg
 			response.Programs = append(response.Programs, programResponse)
@@ -120,7 +119,6 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 			response.Programs = s.processProgramRequest(response.Programs, programResponse, goRoutineId)
 		}*/
 	}
-	log.Print("it reached the end of process request")
 	return response, nil
 }
 

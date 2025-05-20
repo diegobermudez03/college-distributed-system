@@ -125,6 +125,7 @@ func main() {
 	}
 
 	endChannel := make(chan bool)
+	serverConfig.EndChannel = endChannel
 	server := transport.NewLoadBServer(collegeService, serverConfig, nWorkers)
 	//start server
 	if err := server.Listen(); err != nil {

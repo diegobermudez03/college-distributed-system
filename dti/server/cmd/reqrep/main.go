@@ -122,6 +122,7 @@ func main() {
 	}
 
 	endChannel := make(chan bool)
+	serverConfig.EndChannel = endChannel
 	server := transport.NewReqRepServer(collegeService, serverConfig)
 	//start server
 	if err := server.Listen(); err != nil {
