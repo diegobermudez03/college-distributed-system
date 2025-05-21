@@ -72,14 +72,11 @@ func (c *FacultyClient) ListenResponses(wg *sync.WaitGroup, listenerChannel chan
 		for {
 			//receive dti response
 			allocation, err := c.socket.Recv()
-			log.Print("RECEIVED MESSAGE FROM SERVERRRRRRRRRRRRRRRRRR")
 			if err != nil {
-				log.Printf("MESSAGE RECEIVED WITH ERRORRRRRRR %v", err.Error())
 				continue
 			}
 			dtiResponse := models.DTIResponse{}
 			if errr := json.Unmarshal(allocation.Bytes(), &dtiResponse); errr != nil {
-				log.Printf("MESSAGE RECEIVED WITH ERRORRRRRRR %v", err.Error())
 				continue
 			}
 			log.Printf("Received DTI response for semester %s", dtiResponse.Semester)

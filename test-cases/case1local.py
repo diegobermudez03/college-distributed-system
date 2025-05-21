@@ -12,7 +12,7 @@ import os
 #with this script the faculties and programs are in the same machine, dti server can be in other
 
 
-dtiServerAddress = os.getenv('DTI_ADDRESS', '127.0.0.1:6666')
+dtiServerAddress = os.getenv('DTI_ADDRESS', '127.0.0.1:6000')
 #for this example we need the following flags on the DTI server
 # --classrooms=380 --labs=60
 

@@ -127,12 +127,12 @@ func (s *LoadBServer) worker(channel chan zmq4.Msg, goRoutineId int) {
 		if err := json.Unmarshal(clientRequestBytes, &clientRequest); err != nil || clientRequest.Semester == "" {
 			hCheck := HealthCheckDTO{}
 			if err := json.Unmarshal(clientRequestBytes, &hCheck); err != nil {
-				return
+				continue
 			}
 			//if it was a health check, we answer with a simple 1 byte
 			log.Print("ANSWERING HEALTH CHECK")
 			s.socket.Send(zmq4.NewMsgFrom(clientIdentity, []byte{1}))
-			return
+			continue
 		}
 		////////////  HEALTH CHECK VALIDATION  //////////////////////////////////////////
 

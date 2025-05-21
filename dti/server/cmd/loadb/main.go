@@ -99,7 +99,7 @@ func main() {
 			log.Fatal("Error loading .env file")
 		}
 	}
-	/*dbConfig := repository.PostgresConfig{
+	dbConfig := repository.PostgresConfig{
 		Host:     os.Getenv("POSTGRES_HOST"),
 		Port:     os.Getenv("POSTGRES_PORT"),
 		User:     os.Getenv("POSTGRES_USER"),
@@ -115,8 +115,8 @@ func main() {
 	}
 
 	//inject dependencies
-	collegeRepository := repository.NewCollegeRepositoryPostgres(db)*/
-	collegeRepository := repository.NewDBMock()
+	collegeRepository := repository.NewCollegeRepositoryPostgres(db)
+	//collegeRepository := repository.NewDBMock()
 	collegeService, err := service.NewCollegeService(&config, collegeRepository)
 	if err != nil {
 		log.Fatalf("Unable to start service: %s", err.Error())

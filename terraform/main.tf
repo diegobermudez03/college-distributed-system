@@ -27,15 +27,15 @@ module "vpc" {
   source = "./vpc"
 }
 
-##create db vm host
-#module "db" {
-#  source          = "./db_vm"
-#  vm_name         = "db-vm"
-#  script_name     = module.buckets.docker_compose_name
-#  subnetwork_name = module.vpc.central_subnet
-#  network_name    = module.vpc.network_name
-#  zone_name       = "us-central1-a"
-#}
+#create db vm host
+module "db" {
+  source          = "./db_vm"
+  vm_name         = "db-vm"
+  script_name     = module.buckets.docker_compose_name
+  subnetwork_name = module.vpc.central_subnet
+  network_name    = module.vpc.network_name
+  zone_name       = "us-central1-a"
+}
 
 
 ##create vm for dti
@@ -52,8 +52,8 @@ module "backend" {
   lb_name = module.buckets.lb_exec_name
   proxy_obj = module.buckets.proxy_obj_name
   proxy_name = module.buckets.proxy_exec_name
-  #db_address = module.db.ip_address
-  db_address = "127.0.0.1"
+  db_address = module.db.ip_address
+  #db_address = "127.0.0.1"
 }
 
 ##create vm for faculties and programs
