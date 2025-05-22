@@ -130,7 +130,6 @@ func (s *ReqRepServer) processMessage(message zmq4.Msg, err error) {
 
 	//process message with the service
 	response, err := s.service.ProcessRequest(clientRequest, goRoutineId)
-	log.Print("IT EXITED THE FUNCTION ProcessRequest")
 	var responseBytes []byte
 	if err != nil {
 		//if there was an error, we send it in the authorized format
@@ -145,9 +144,7 @@ func (s *ReqRepServer) processMessage(message zmq4.Msg, err error) {
 	}
 	//send message with client ID (if recived one, means, we are using proxy)
 	if err := s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes, clientId)); err != nil {
-		log.Printf("ERROR SENDING aANSWERRRRRRRRRRR %v", err.Error())
-	} else {
-		log.Print("ANSWEER SENTTTTTTTTTTTTTTTTTT")
+		return
 	}
 
 	if err == nil {

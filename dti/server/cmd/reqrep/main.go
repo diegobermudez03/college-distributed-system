@@ -107,7 +107,7 @@ func main() {
 	}
 	//create, migrate and start db
 	db, err := repository.OpenPostgresDb(dbConfig)
-	if err != nil{
+	if err != nil {
 		log.Fatal("Error connecting to database: ", err.Error())
 	}
 
@@ -134,6 +134,8 @@ func main() {
 	case <-time.Tick(time.Duration(failSeconds) * time.Second):
 		log.Printf("Fail simulated after %d seconds", failSeconds)
 	case <-endChannel:
+		//add a wait time so that the db writer can end
+		<-time.Tick(2 * time.Second)
 		log.Printf("Completed all %d faculties", serverConfig.NumFaculties)
 	}
 }

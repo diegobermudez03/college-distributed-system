@@ -84,10 +84,10 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 	s.Lock.Unlock()
 
 	//we get the faculty programs, the function will check that the faculty does exist
-	/*facultyPrograms, err := s.getFacultyPrograms(request.FacultyName)
+	facultyPrograms, err := s.getFacultyPrograms(request.FacultyName)
 	if err != nil {
 		return nil, err
-	}*/
+	}
 	//base struct for response
 	response := new(domain.DTIResponseDTO)
 	*response = domain.DTIResponseDTO{
@@ -98,7 +98,7 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 	}
 	//now that we are sure that we have the semester info, we iterate over the faculty request programs
 	for _, program := range request.Programs {
-		//programName := s.convertToBasicString(program.ProgramName)
+		programName := s.convertToBasicString(program.ProgramName)
 
 		//create base of program response
 		programResponse := domain.DTIProgramResponseDTO{
@@ -109,15 +109,14 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 		}
 
 		//if the program isnt a valid faculty program, we add it as a program error
-		response.Programs = s.processProgramRequest(response.Programs, programResponse, goRoutineId)
-		/*if _, ok := facultyPrograms[programName]; !ok {
+		if _, ok := facultyPrograms[programName]; !ok {
 			programResponse.StatusMessage = domain.InvalidProgramMsg
 			response.Programs = append(response.Programs, programResponse)
 			continue
 		} else {
 			//we call the method in charge of process the program request, this is where we access the shared resource and all that stuff
 			response.Programs = s.processProgramRequest(response.Programs, programResponse, goRoutineId)
-		}*/
+		}
 	}
 	return response, nil
 }
@@ -179,6 +178,9 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 	s.Semester.Classrooms -= programResponse.Classrooms + mobileLabsNeeded //we have less classrooms, the classrooms reserved and the mobile labs used
 	s.Semester.Labs -= programResponse.Labs
 	s.Semester.MobileLabs -= programResponse.MobileLabs
+	if s.Semester.MobileLabs > s.Semester.Classrooms {
+		s.Semester.MobileLabs = s.Semester.Classrooms
+	}
 
 	//create assignation model (for DB)
 	assignation := domain.AssignationModel{
