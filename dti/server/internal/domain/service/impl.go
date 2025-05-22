@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -109,13 +110,13 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 		}
 
 		//if the program isnt a valid faculty program, we add it as a program error
-		if _, ok := facultyPrograms[programName]; !ok {
+		if ID, ok := facultyPrograms[programName]; !ok {
 			programResponse.StatusMessage = domain.InvalidProgramMsg
 			response.Programs = append(response.Programs, programResponse)
 			continue
 		} else {
 			//we call the method in charge of process the program request, this is where we access the shared resource and all that stuff
-			response.Programs = s.processProgramRequest(response.Programs, programResponse, goRoutineId)
+			response.Programs = s.processProgramRequest(response.Programs, programResponse, ID,goRoutineId)
 		}
 	}
 	return response, nil
@@ -127,7 +128,7 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, programResponse domain.DTIProgramResponseDTO, goRoutineId int) []domain.DTIProgramResponseDTO {
+func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, programResponse domain.DTIProgramResponseDTO, programId uuid.UUID,goRoutineId int) []domain.DTIProgramResponseDTO {
 	//check if we already have an assignation for this program for this semester, if we have, then we send the already assignacition
 	if ass, _ := s.repository.GetProgramAssignment(programResponse.ProgramId, s.Semester.ID); ass != nil {
 		log.Printf("Program %s in semester %s already had assignation", programResponse.ProgramName, s.Semester.Semester)
@@ -186,7 +187,7 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 	assignation := domain.AssignationModel{
 		ID:                  uuid.New(),
 		CreatedAt:           time.Now(),
-		ProgramId:           programResponse.ProgramId,
+		ProgramId:           programId,
 		SemesterId:          s.Semester.ID,
 		RequestedClassrooms: programResponse.RequestedClassrooms,
 		RequestedLabs:       programResponse.RequestedLabs,
@@ -199,6 +200,7 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 		RemainingCLassrooms: s.Semester.Classrooms,
 		RemainingLabs:       s.Semester.Labs,
 		RemainingMobileLabs: s.Semester.MobileLabs,
+		Alert: false,
 	}
 	//free lock
 	s.Lock.Unlock()
@@ -261,7 +263,9 @@ func (s *CollegeServiceImpl) startDbLogWriter() chan *domain.AssignationModel {
 			)
 			//save to db, blocking operation, however this is our purpose, to be the go routine blocked so the main ones are not
 
-			s.repository.CreateAssignation(message)
+			if err := s.repository.CreateAssignation(message); err != nil{
+				fmt.Println(err.Error())
+			}
 		}
 	}()
 	return channel

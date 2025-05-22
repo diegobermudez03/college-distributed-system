@@ -105,7 +105,7 @@ func (s *LoadBServer) Listen() error {
 
 // internal method to process each request message, it validates the message and communicates with the service
 func (s *LoadBServer) worker(channel chan zmq4.Msg, goRoutineId int) {
-	//if there was an error with the mesage we ignore it then
+	log.Printf("Initializing worker %d\n", goRoutineId)
 	for message := range channel {
 		clientIdentity := message.Frames[0]
 

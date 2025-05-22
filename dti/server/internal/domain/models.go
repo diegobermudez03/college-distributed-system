@@ -41,7 +41,7 @@ type AssignationModel struct{
 	Labs 		int
 	MobileLabs 	int
 	CreatedAt 	time.Time
-	Alert 		bool
+	Alert 		bool	`gorm:"not null"`
 	GoRoutineId	int `gorm:"-"`
 	ProgramName string `gorm:"-"`
 	SemesterName string `gorm:"-"`
