@@ -12,7 +12,7 @@ import os
 #with this script the faculties and programs are in the same machine, dti server can be in other
 
 
-dtiServerAddress = os.getenv('DTI_ADDRESS', '127.0.0.1:6666')
+dtiServerAddress = os.getenv('DTI_ADDRESS', '127.0.0.1')+ ':6666'
 #for this example we need the following flags on the DTI server
 # --classrooms=380 --labs=60
 
@@ -60,7 +60,7 @@ program_commands = [
 
     ##FINAL FOR CONCURRENCY
     "./program --name=comunicacion --semester=2025-10 --classrooms=10 --labs=4 --faculty-server=127.0.0.1:5001",
-    "./program --name=ciecias-ambientales --semester=2025-10 --classrooms=10 --labs=4 --faculty-server=127.0.0.1:5002",
+    "./program --name=ciencias-ambientales --semester=2025-10 --classrooms=10 --labs=4 --faculty-server=127.0.0.1:5002",
     "./program --name=ingenieria-industrial --semester=2025-10 --classrooms=10 --labs=4 --faculty-server=127.0.0.1:5003",
     "./program --name=terapia-fisica --semester=2025-10 --classrooms=10 --labs=4 --faculty-server=127.0.0.1:5004",
     "./program --name=derecho-constitucional --semester=2025-10 --classrooms=10 --labs=4 --faculty-server=127.0.0.1:5005",
