@@ -24,9 +24,9 @@ type CollegeServiceImpl struct {
 func NewCollegeService(config *domain.ServiceConfig, repository repository.CollegeRepository) (domain.CollegeService, error) {
 	//validate if semester already was processed
 	var id uuid.UUID = uuid.New()
-	sem, _  := repository.GetSemester(config.Semester)
+	sem, _ := repository.GetSemester(config.Semester)
 	var nClassrooms, nLabs, nMobileLabs int = config.Classrooms, config.Labs, config.MobileLabs
-	if sem != nil{
+	if sem != nil {
 		id = sem.ID
 		assigned, err := repository.GetAssignedResourcesOfSemester(id)
 		if err != nil {
@@ -34,10 +34,10 @@ func NewCollegeService(config *domain.ServiceConfig, repository repository.Colle
 		}
 		nClassrooms -= assigned.Classrooms
 		nLabs -= assigned.Labs
-		nMobileLabs -= assigned.MobileLabs	
-		if nMobileLabs > nClassrooms{
+		nMobileLabs -= assigned.MobileLabs
+		if nMobileLabs > nClassrooms {
 			nMobileLabs = nClassrooms
-		}	
+		}
 	}
 
 	//register semester in db
@@ -50,10 +50,10 @@ func NewCollegeService(config *domain.ServiceConfig, repository repository.Colle
 	}
 	//create service
 	service := &CollegeServiceImpl{
-		repository:      repository,
-		Semester:        semester,
-		Lock:            &sync.RWMutex{},
-		first:           false,
+		repository: repository,
+		Semester:   semester,
+		Lock:       &sync.RWMutex{},
+		first:      false,
 	}
 	//start writers go routines and save the channel to communicate with them
 	logWriterChannel := service.startDbLogWriter()
@@ -74,20 +74,23 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 	//check if the semester already existed but its the first request, in which case we need to get the updated availaility
 	s.Lock.Lock()
 	if !s.first {
-		//check if semester already existed 
+		//check if semester already existed
 		sem, _ := s.repository.GetSemester(s.Semester.Semester)
-		if sem != nil{
+		if sem != nil {
 			s.Semester.ID = sem.ID
 			res, err := s.repository.GetAssignedResourcesOfSemester(s.Semester.ID)
 			if err != nil {
 				s.Lock.Unlock()
 				return nil, errors.New("unable to load resources")
 			}
-			s.Semester.Classrooms -= res.Classrooms
-			s.Semester.Labs -= res.Labs
-			s.Semester.MobileLabs -= res.MobileLabs
+			s.Semester.Classrooms = sem.Classrooms - res.Classrooms
+			s.Semester.Labs = sem.Labs - res.Labs
+			s.Semester.MobileLabs = sem.MobileLabs - res.MobileLabs
+			if s.Semester.MobileLabs > s.Semester.Classrooms {
+				s.Semester.MobileLabs = s.Semester.Classrooms
+			}
 			log.Printf("TAKING FROM WHERE PREVIOUS SERVER LEFT WITH %d classrooms, %d labs and %d mobile labs", s.Semester.Classrooms, s.Semester.Labs, s.Semester.MobileLabs)
-		}else{
+		} else {
 			s.repository.CreateSemester(&s.Semester)
 		}
 		s.first = true
@@ -126,7 +129,7 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 			continue
 		} else {
 			//we call the method in charge of process the program request, this is where we access the shared resource and all that stuff
-			response.Programs = s.processProgramRequest(response.Programs, programResponse, ID,goRoutineId)
+			response.Programs = s.processProgramRequest(response.Programs, programResponse, ID, goRoutineId)
 		}
 	}
 	return response, nil
@@ -138,7 +141,7 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, programResponse domain.DTIProgramResponseDTO, programId uuid.UUID,goRoutineId int) []domain.DTIProgramResponseDTO {
+func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramResponseDTO, programResponse domain.DTIProgramResponseDTO, programId uuid.UUID, goRoutineId int) []domain.DTIProgramResponseDTO {
 	//check if we already have an assignation for this program for this semester, if we have, then we send the already assignacition
 	if ass, _ := s.repository.GetProgramAssignment(programResponse.ProgramId, s.Semester.ID); ass != nil {
 		log.Printf("Program %s in semester %s already had assignation", programResponse.ProgramName, s.Semester.Semester)
@@ -188,13 +191,13 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 		s.Semester.MobileLabs = s.Semester.Classrooms
 	}
 
-	if programResponse.Classrooms < 0{
+	if programResponse.Classrooms < 0 {
 		programResponse.Classrooms = 0
 	}
-	if programResponse.Labs < 0{
+	if programResponse.Labs < 0 {
 		programResponse.Labs = 0
 	}
-	if programResponse.MobileLabs < 0{
+	if programResponse.MobileLabs < 0 {
 		programResponse.MobileLabs = 0
 	}
 
@@ -215,7 +218,7 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 		RemainingCLassrooms: s.Semester.Classrooms,
 		RemainingLabs:       s.Semester.Labs,
 		RemainingMobileLabs: s.Semester.MobileLabs,
-		Alert: false,
+		Alert:               false,
 	}
 	//free lock
 	s.Lock.Unlock()
@@ -272,12 +275,12 @@ func (s *CollegeServiceImpl) startDbLogWriter() chan *domain.AssignationModel {
 	go func() {
 		for message := range channel {
 			//log what we just did
-			if message.Alert{
+			if message.Alert {
 				log.Printf("*****ALERT GENERATED BY GO ROUTINE: %v PROGRAM: %v SEMESTER: %v REQ CLASSROOMS: %d REQ LABS: %d ASSIGNED CLASSROOMS: %d ASSIGNED LABS: %d ASSIGNED MOBILE LABS: %d: REMAINING RESOURCES OF SEMESTER C:%d L:%d ML:%d",
-					message.GoRoutineId, message.ProgramName, message.SemesterName, message.RequestedClassrooms, message.RequestedLabs,message.Classrooms, message.Labs, message.MobileLabs, message.RemainingCLassrooms,
+					message.GoRoutineId, message.ProgramName, message.SemesterName, message.RequestedClassrooms, message.RequestedLabs, message.Classrooms, message.Labs, message.MobileLabs, message.RemainingCLassrooms,
 					message.RemainingLabs, message.RemainingMobileLabs,
 				)
-			}else{
+			} else {
 				log.Printf("ASSIGNED BY GO ROUTINE: %v PROGRAM: %v SEMESTER: %v CLASSROOMS: %d LABS: %d MOBILE LABS: %d: REMAINING RESOURCES OF SEMESTER C:%d L:%d ML:%d",
 					message.GoRoutineId, message.ProgramName, message.SemesterName, message.Classrooms, message.Labs, message.MobileLabs, message.RemainingCLassrooms,
 					message.RemainingLabs, message.RemainingMobileLabs,
@@ -285,7 +288,7 @@ func (s *CollegeServiceImpl) startDbLogWriter() chan *domain.AssignationModel {
 			}
 			//save to db, blocking operation, however this is our purpose, to be the go routine blocked so the main ones are not
 
-			if err := s.repository.CreateAssignation(message); err != nil{
+			if err := s.repository.CreateAssignation(message); err != nil {
 				fmt.Println(err.Error())
 			}
 		}
@@ -303,7 +306,7 @@ func (s *CollegeServiceImpl) convertToBasicString(baseString string) string {
 	)
 }
 
-func (s *CollegeServiceImpl) GetSemesterResources()(int, int, int){
+func (s *CollegeServiceImpl) GetSemesterResources() (int, int, int) {
 	return s.Semester.Classrooms, s.Semester.Labs, s.Semester.MobileLabs
 
 }

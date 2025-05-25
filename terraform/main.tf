@@ -59,7 +59,7 @@ module "backend" {
 ##create vm for faculties
 resource "google_compute_instance" "fac_vm"{
     name = "fac-vm"
-    machine_type = "e2-micro"
+    machine_type = "e2-standard-2"
     zone = "us-central1-a"
     boot_disk {
         initialize_params {
@@ -100,7 +100,7 @@ resource "google_compute_instance" "fac_vm"{
 ##create vm for faculties
 resource "google_compute_instance" "programs_vm"{
     name = "programs-vm"
-    machine_type = "e2-micro"
+    machine_type = "e2-standard-2"
     zone = "us-central1-a"
     boot_disk {
         initialize_params {

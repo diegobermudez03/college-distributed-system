@@ -54,7 +54,7 @@ func (s *FacultyServer) Listen() error {
 	//SEND REQUEST TO THE DTI
 	//connect to the DTI server
 	dtiSocket := zmq4.NewDealer(context.Background(), zmq4.WithAutomaticReconnect(true))
-	if err := socket.Dial(fmt.Sprintf("tcp://%s", s.dtiAddress)); err != nil {
+	if err := dtiSocket.Dial(fmt.Sprintf("tcp://%s", s.dtiAddress)); err != nil {
 		return err
 	}
 	defer dtiSocket.Close()

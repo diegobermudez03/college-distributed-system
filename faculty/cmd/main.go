@@ -78,5 +78,7 @@ func main() {
 
 	//start server
 	server := server.NewFacultyServer(config.listenPort, config.minPrograms, config.semester, config.name, config.dtiServer)
-	server.Listen()
+	if err := server.Listen(); err != nil {
+		log.Print(err.Error())
+	}
 }
