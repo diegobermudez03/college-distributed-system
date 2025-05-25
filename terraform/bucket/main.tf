@@ -46,43 +46,97 @@ resource "google_storage_bucket_object" "program_exe" {
   source = "../program/bin/program"
 }
 
-#load scripts
-resource "google_storage_bucket_object" "case1" {
-  name   = "case1.py"
+############################################################################################
+#             CASE 1
+############################################################################################
+resource "google_storage_bucket_object" "case1fac" {
+  name   = "case1fac.py"
   bucket = google_storage_bucket.scripts.name
-  source = "../test-cases/case1.py"
+  source = "../test-cases/case1/case1fac.py"
 }
 
-resource "google_storage_bucket_object" "case2" {
-  name   = "case2.py"
+resource "google_storage_bucket_object" "case1programs" {
+  name   = "case1programs.py"
   bucket = google_storage_bucket.scripts.name
-  source = "../test-cases/case2.py"
-}
-resource "google_storage_bucket_object" "case3" {
-  name   = "case3.py"
-  bucket = google_storage_bucket.scripts.name
-  source = "../test-cases/case3.py"
-}
-
-resource "google_storage_bucket_object" "case4" {
-  name   = "case4.py"
-  bucket = google_storage_bucket.scripts.name
-  source = "../test-cases/case4.py"
-}
-
-resource "google_storage_bucket_object" "case51" {
-  name   = "case5.1.py"
-  bucket = google_storage_bucket.scripts.name
-  source = "../test-cases/case5.1.py"
-}
-
-resource "google_storage_bucket_object" "case52" {
-  name   = "case5.2.py"
-  bucket = google_storage_bucket.scripts.name
-  source = "../test-cases/case5.2.py"
+  source = "../test-cases/case1/case1programs.py"
 }
 
 
+
+############################################################################################
+#             CASE 2
+############################################################################################
+
+resource "google_storage_bucket_object" "case2fac" {
+  name   = "case2fac.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case2/case2fac.py"
+}
+
+resource "google_storage_bucket_object" "case2programs" {
+  name   = "case2programs.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case2/case2programs.py"
+}
+
+
+############################################################################################
+#             CASE 3
+############################################################################################
+
+resource "google_storage_bucket_object" "case3fac" {
+  name   = "case3fac.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case3/case3fac.py"
+}
+
+resource "google_storage_bucket_object" "case3programs" {
+  name   = "case3programs.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case3/case3programs.py"
+}
+
+
+############################################################################################
+#             CASE 4
+############################################################################################
+
+resource "google_storage_bucket_object" "case4fac" {
+  name   = "case4fac.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case4/case4fac.py"
+}
+
+resource "google_storage_bucket_object" "case4programs" {
+  name   = "case4programs.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case4/case4programs.py"
+}
+
+############################################################################################
+#             CASE 5
+############################################################################################
+
+resource "google_storage_bucket_object" "case5fac" {
+  name   = "case5fac.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case5/case5fac.py"
+}
+
+resource "google_storage_bucket_object" "case5programs1" {
+  name   = "case5programs1.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case5/case5programs1.py"
+}
+
+
+resource "google_storage_bucket_object" "case5programs2" {
+  name   = "case5programs2.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case5/case5programs2.py"
+}
+
+#############################################################################################
 resource "google_storage_bucket_object" "metricasc1" {
   name   = "metricasc1.py"
   bucket = google_storage_bucket.scripts.name
@@ -95,11 +149,18 @@ resource "google_storage_bucket_object" "metricasc2" {
   source = "../test-cases/metricasc2.py"
 }
 
-resource "google_storage_bucket_object" "bash" {
-  name   = "script.sh"
+resource "google_storage_bucket_object" "bashfac" {
+  name   = "script_fac.sh"
   bucket = google_storage_bucket.scripts.name
-  source = "../test-cases/script.sh"
+  source = "../test-cases/script_fac.sh"
 }
+
+resource "google_storage_bucket_object" "bashprograms" {
+  name   = "script_programs.sh"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/script_programs.sh"
+}
+
 
 
 

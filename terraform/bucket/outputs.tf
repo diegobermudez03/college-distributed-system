@@ -20,28 +20,57 @@ output "program_exe_obj_name"{
     value =  "${google_storage_bucket_object.program_exe.bucket}/${google_storage_bucket_object.program_exe.name}"
 }
 
-### scripts
-output "script_case1"{
-    value =  "${google_storage_bucket_object.case1.bucket}/${google_storage_bucket_object.case1.name}"
+###################################################################### scripts
+output "scase1_fac"{
+    value =  "${google_storage_bucket_object.case1fac.bucket}/${google_storage_bucket_object.case1fac.name}"
 }
-output "script_case2"{
-    value =  "${google_storage_bucket_object.case2.bucket}/${google_storage_bucket_object.case2.name}"
+output "scase1_programs"{
+    value =  "${google_storage_bucket_object.case1programs.bucket}/${google_storage_bucket_object.case1programs.name}"
 }
-output "script_case3"{
-    value =  "${google_storage_bucket_object.case3.bucket}/${google_storage_bucket_object.case3.name}"
+
+output "scase2_fac"{
+    value =  "${google_storage_bucket_object.case2fac.bucket}/${google_storage_bucket_object.case2fac.name}"
 }
-output "script_case4"{
-    value =  "${google_storage_bucket_object.case4.bucket}/${google_storage_bucket_object.case4.name}"
+output "scase2_programs"{
+    value =  "${google_storage_bucket_object.case2programs.bucket}/${google_storage_bucket_object.case2programs.name}"
 }
-output "script_case51"{
-    value =  "${google_storage_bucket_object.case51.bucket}/${google_storage_bucket_object.case51.name}"
+
+
+output "scase3_fac"{
+    value =  "${google_storage_bucket_object.case3fac.bucket}/${google_storage_bucket_object.case3fac.name}"
 }
-output "script_case52"{
-    value =  "${google_storage_bucket_object.case52.bucket}/${google_storage_bucket_object.case52.name}"
+output "scase3_programs"{
+    value =  "${google_storage_bucket_object.case3programs.bucket}/${google_storage_bucket_object.case3programs.name}"
 }
-output "script_bash"{
-    value =  "${google_storage_bucket_object.bash.bucket}/${google_storage_bucket_object.bash.name}"
+
+
+output "scase4_fac"{
+    value =  "${google_storage_bucket_object.case4fac.bucket}/${google_storage_bucket_object.case4fac.name}"
 }
+output "scase4_programs"{
+    value =  "${google_storage_bucket_object.case4programs.bucket}/${google_storage_bucket_object.case4programs.name}"
+}
+
+output "scase5_fac"{
+    value =  "${google_storage_bucket_object.case5fac.bucket}/${google_storage_bucket_object.case5fac.name}"
+}
+output "scase5_programs1"{
+    value =  "${google_storage_bucket_object.case5programs1.bucket}/${google_storage_bucket_object.case5programs1.name}"
+}
+output "scase5_programs2"{
+    value =  "${google_storage_bucket_object.case5programs2.bucket}/${google_storage_bucket_object.case5programs2.name}"
+}
+
+output "bash_fac"{
+    value =  "${google_storage_bucket_object.bashfac.bucket}/${google_storage_bucket_object.bashfac.name}"
+}
+output "bash_programs"{
+    value =  "${google_storage_bucket_object.bashprograms.bucket}/${google_storage_bucket_object.bashprograms.name}"
+}
+
+
+
+##################################################################################################################
 
 output "metricasc1"{
     value =  "${google_storage_bucket_object.metricasc1.bucket}/${google_storage_bucket_object.metricasc1.name}"

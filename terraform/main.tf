@@ -56,10 +56,10 @@ module "backend" {
   #db_address = "127.0.0.1"
 }
 
-##create vm for faculties and programs
-resource "google_compute_instance" "clients_vm"{
-    name = "clients-vm"
-    machine_type = "e2-small"
+##create vm for faculties
+resource "google_compute_instance" "fac_vm"{
+    name = "fac-vm"
+    machine_type = "e2-micro"
     zone = "us-central1-a"
     boot_disk {
         initialize_params {
@@ -80,20 +80,59 @@ resource "google_compute_instance" "clients_vm"{
         startup-script = <<-EOF
         #!/bin/bash
         gcloud storage cp gs://${module.buckets.faculty_exe_obj_name} ./home/
-        gcloud storage cp gs://${module.buckets.program_exe_obj_name} ./home/
-        gcloud storage cp gs://${module.buckets.script_case1} ./home/
-        gcloud storage cp gs://${module.buckets.script_case2} ./home/
-        gcloud storage cp gs://${module.buckets.script_case3} ./home/
-        gcloud storage cp gs://${module.buckets.script_case4} ./home/
-        gcloud storage cp gs://${module.buckets.script_case51} ./home/
-        gcloud storage cp gs://${module.buckets.script_case52} ./home/
-        gcloud storage cp gs://${module.buckets.script_bash} ./home/
+        gcloud storage cp gs://${module.buckets.scase1_fac} ./home/
+        gcloud storage cp gs://${module.buckets.scase2_fac} ./home/
+        gcloud storage cp gs://${module.buckets.scase3_fac} ./home/
+        gcloud storage cp gs://${module.buckets.scase4_fac} ./home/
+        gcloud storage cp gs://${module.buckets.scase5_fac} ./home/
+        gcloud storage cp gs://${module.buckets.bash_fac} ./home/
         gcloud storage cp gs://${module.buckets.metricasc1} ./home/
         gcloud storage cp gs://${module.buckets.metricasc2} ./home/
         chmod +x ./home/${module.buckets.fac_exec_name}
-        chmod +x ./home/${module.buckets.program_exec_name}
-        chmod +x ./home/script.sh
+        chmod +x ./home/script_fac.sh
         echo 'export DTI_ADDRESS=${module.backend.proxy_address}' | sudo tee /etc/profile.d/env_vars.sh
+        source /etc/profile.d/env_vars.sh
+        EOF
+    }
+}
+
+
+##create vm for faculties
+resource "google_compute_instance" "programs_vm"{
+    name = "programs-vm"
+    machine_type = "e2-micro"
+    zone = "us-central1-a"
+    boot_disk {
+        initialize_params {
+            image = "debian-cloud/debian-12"
+        }
+    }
+    network_interface {
+        network = module.vpc.network_name
+        subnetwork = module.vpc.central_subnet
+    }
+    service_account {
+      email = "365518882403-compute@developer.gserviceaccount.com"
+      scopes = [
+        "https://www.googleapis.com/auth/cloud-platform",
+        ]
+    }
+    metadata={
+        startup-script = <<-EOF
+        #!/bin/bash
+        gcloud storage cp gs://${module.buckets.program_exe_obj_name} ./home/
+        gcloud storage cp gs://${module.buckets.scase1_programs} ./home/
+        gcloud storage cp gs://${module.buckets.scase2_programs} ./home/
+        gcloud storage cp gs://${module.buckets.scase3_programs} ./home/
+        gcloud storage cp gs://${module.buckets.scase4_programs} ./home/
+        gcloud storage cp gs://${module.buckets.scase5_programs1} ./home/
+        gcloud storage cp gs://${module.buckets.scase5_programs2} ./home/
+        gcloud storage cp gs://${module.buckets.bash_programs} ./home/
+        gcloud storage cp gs://${module.buckets.metricasc1} ./home/
+        gcloud storage cp gs://${module.buckets.metricasc2} ./home/
+        chmod +x ./home/${module.buckets.program_exec_name}
+        chmod +x ./home/script_programs.sh
+        echo 'export FAC_ADDRESS=${google_compute_instance.fac_vm.network_interface[0].network_ip}' | sudo tee /etc/profile.d/env_vars.sh
         source /etc/profile.d/env_vars.sh
         EOF
     }
