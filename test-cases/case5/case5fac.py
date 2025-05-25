@@ -2,7 +2,7 @@ import subprocess
 import os
 
 ##################################################################################
-#### 30 SALONES 10 LABS 5 segundos fail
+#### 30 SALONES 12 LABS 5 segundos fail
 #### SEMESTRE 2025-10
 
 

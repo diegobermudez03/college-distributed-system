@@ -31,16 +31,18 @@ resource "google_compute_instance" "proxy_vm"{
 
 resource "google_compute_instance" "req_rep_vm"{
     name = "req-rep-vm"
-    machine_type = "e2-standard-4"
+    machine_type = "e2-standard-2"
     zone = var.zone1_name
     boot_disk {
         initialize_params {
             image = "debian-cloud/debian-12"
         }
     }
+
     network_interface {
         network = var.network_name
         subnetwork = var.subnet1_name
+        access_config {}
     }
     service_account {
       email = "365518882403-compute@developer.gserviceaccount.com"
@@ -61,6 +63,8 @@ resource "google_compute_instance" "req_rep_vm"{
         echo 'export POSTGRES_DB=college' | sudo tee -a /etc/profile.d/env_vars.sh
         echo 'export POSTGRES_SSL_MODE=disable' | sudo tee -a /etc/profile.d/env_vars.sh
         echo 'export POSTGRES_TIMEZONE=UTC' | sudo tee -a /etc/profile.d/env_vars.sh
+        sudo apt-get update
+        sudo apt-get install libzmq3-dev libczmq-dev libsodium-dev
         source /etc/profile.d/env_vars.sh
         EOF
     }
@@ -69,7 +73,7 @@ resource "google_compute_instance" "req_rep_vm"{
 
 resource "google_compute_instance" "lb_vm"{
     name = "lb-vm"
-    machine_type = "e2-standard-4"
+    machine_type = "e2-standard-2"
     zone = var.zone2_name
     boot_disk {
         initialize_params {
@@ -79,6 +83,7 @@ resource "google_compute_instance" "lb_vm"{
     network_interface {
         network = var.network_name
         subnetwork = var.subnet2_name
+        access_config {}
     }
     service_account {
       email = "365518882403-compute@developer.gserviceaccount.com"
@@ -99,6 +104,8 @@ resource "google_compute_instance" "lb_vm"{
         echo 'export POSTGRES_DB=college' | sudo tee -a /etc/profile.d/env_vars.sh
         echo 'export POSTGRES_SSL_MODE=disable' | sudo tee -a /etc/profile.d/env_vars.sh
         echo 'export POSTGRES_TIMEZONE=UTC' | sudo tee -a /etc/profile.d/env_vars.sh
+        sudo apt-get update
+        sudo apt-get install -y libzmq3-dev libczmq-dev pkg-config
         source /etc/profile.d/env_vars.sh
         EOF
     }

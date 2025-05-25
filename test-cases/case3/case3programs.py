@@ -5,7 +5,7 @@ import os
 #### 30 SALONES 10 LABS
 #### SEMESTRE 2024-10
 
-facAddrress = os.getenv('DTI_ADDRESS', '127.0.0.1')
+facAddrress = os.getenv('FAC_ADDRESS', '127.0.0.1')
 
 ##we will handle the program commands in a separate list, is so that we can re order it random, to check the system with random order
 program_commands = [
@@ -20,7 +20,7 @@ program_commands = [
 ]
 
 
-processes = [subprocess.Popen(cmd, shell=True) for cmd in facAddrress]
+processes = [subprocess.Popen(cmd, shell=True) for cmd in program_commands]
 
 for p in processes:
     p.wait()

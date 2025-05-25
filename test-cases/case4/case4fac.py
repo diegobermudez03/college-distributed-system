@@ -2,7 +2,7 @@ import subprocess
 import os
 
 ##################################################################################
-#### 30 SALONES 10 LABS
+#### 30 SALONES 12 LABS
 #### SEMESTRE 2024-30
 
 
