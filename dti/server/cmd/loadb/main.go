@@ -118,10 +118,15 @@ func main() {
 	collegeRepository := repository.NewCollegeRepositoryPostgres(db)
 	//collegeRepository := repository.NewDBMock()
 	collegeService, err := service.NewCollegeService(&config, collegeRepository)
+	servClassrooms, servLabs, servMobileLabs := collegeService.GetSemesterResources()
 	if err != nil {
 		log.Fatalf("Unable to start service: %s", err.Error())
 	} else {
-		log.Printf("Starting service with %d classrooms, %d labs and %d mobile labs", config.Classrooms, config.Labs, config.MobileLabs)
+		if servClassrooms != config.Classrooms || servLabs != config.Labs || servMobileLabs != config.MobileLabs {
+			log.Printf("Semester already existed, using previous existing resources with %d classrooms, %d labs and %d mobile labs" , servClassrooms, servLabs, servMobileLabs)
+		}else{
+			log.Printf("Starting service with %d classrooms, %d labs and %d mobile labs", servClassrooms, servLabs, servMobileLabs)
+		}
 	}
 
 	endChannel := make(chan bool)

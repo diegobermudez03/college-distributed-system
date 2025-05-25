@@ -73,4 +73,5 @@ type DTIProgramRequestDTO struct{
 type CollegeService interface {
 	PoblateFacultiesAndPrograms() error
 	ProcessRequest(request DTIRequestDTO, goRoutineId int) (*DTIResponseDTO, error)
+	GetSemesterResources() (int, int, int)
 }
