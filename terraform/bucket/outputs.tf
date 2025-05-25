@@ -24,9 +24,30 @@ output "program_exe_obj_name"{
 output "script_case1"{
     value =  "${google_storage_bucket_object.case1.bucket}/${google_storage_bucket_object.case1.name}"
 }
-
 output "script_case2"{
     value =  "${google_storage_bucket_object.case2.bucket}/${google_storage_bucket_object.case2.name}"
+}
+output "script_case3"{
+    value =  "${google_storage_bucket_object.case3.bucket}/${google_storage_bucket_object.case3.name}"
+}
+output "script_case4"{
+    value =  "${google_storage_bucket_object.case4.bucket}/${google_storage_bucket_object.case4.name}"
+}
+output "script_case51"{
+    value =  "${google_storage_bucket_object.case51.bucket}/${google_storage_bucket_object.case51.name}"
+}
+output "script_case52"{
+    value =  "${google_storage_bucket_object.case52.bucket}/${google_storage_bucket_object.case52.name}"
+}
+output "script_bash"{
+    value =  "${google_storage_bucket_object.bash.bucket}/${google_storage_bucket_object.bash.name}"
+}
+
+output "metricasc1"{
+    value =  "${google_storage_bucket_object.metricasc1.bucket}/${google_storage_bucket_object.metricasc1.name}"
+}
+output "metricasc2"{
+    value =  "${google_storage_bucket_object.metricasc2.bucket}/${google_storage_bucket_object.metricasc2.name}"
 }
 
 

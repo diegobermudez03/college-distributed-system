@@ -45,9 +45,9 @@ type AssignationModel struct{
 	GoRoutineId	int `gorm:"-"`
 	ProgramName string `gorm:"-"`
 	SemesterName string `gorm:"-"`
-	RemainingCLassrooms int `gorm:"-"`
-	RemainingLabs int `gorm:"-"`
-	RemainingMobileLabs int `gorm:"-"`
+	RemainingCLassrooms int 
+	RemainingLabs int 
+	RemainingMobileLabs int 
 }
 
 //NON DB TABLES

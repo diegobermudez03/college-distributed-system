@@ -1,8 +1,6 @@
 package transport
 
 import (
-	"bufio"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,20 +11,18 @@ import (
 	"sync"
 
 	"github.com/diegobermudez03/college-distributed-system/dti/server/internal/domain"
-	"github.com/go-zeromq/zmq4"
+	"github.com/zeromq/goczmq"
 )
 
 type LoadBServer struct {
 	port        int
 	service     domain.CollegeService
-	socket      zmq4.Socket
 	counter     int
 	endChannel  chan bool
 	proxyServer string
 	faculties   int
 	lock        sync.Mutex
 	nWorkers    int
-	channels    []chan zmq4.Msg
 }
 
 func NewLoadBServer(service domain.CollegeService, config domain.ServerConfig, nWorkers int) *LoadBServer {
@@ -36,135 +32,140 @@ func NewLoadBServer(service domain.CollegeService, config domain.ServerConfig, n
 		faculties:   config.NumFaculties,
 		endChannel:  config.EndChannel,
 		proxyServer: config.ProxyServer,
-		lock:        sync.Mutex{},
 		nWorkers:    nWorkers,
-		channels:    []chan zmq4.Msg{},
 	}
 }
 
-// principal method to start server and listen for requests
 func (s *LoadBServer) Listen() error {
-	//first we poblate the DB
 	if err := s.service.PoblateFacultiesAndPrograms(); err != nil {
 		return err
 	}
 
-	//if we are using a proxy server, then we suscribe
+	//if we receive proxy address, then we suscribe with it
 	if s.proxyServer != "" {
-		//establish connection with the faculty
 		conn, err := net.Dial("tcp", s.proxyServer)
 		if err != nil {
-			log.Print(err.Error())
-			return errors.New("unable to suscribe with proxy")
+			return fmt.Errorf("proxy connection failed: %v", err)
 		}
-		message := strconv.Itoa(s.port) + "\n"
-		_, err = conn.Write([]byte(message))
-		if err != nil {
-			log.Print(err.Error())
-			return errors.New("unable to suscribe with proxy")
+		defer conn.Close()
+
+		if _, err := conn.Write([]byte(strconv.Itoa(s.port) + "\n")); err != nil {
+			return fmt.Errorf("proxy registration failed: %v", err)
 		}
-		reader := bufio.NewReader(conn)
-		response, err := reader.ReadString('\n')
-		if err != nil {
-			log.Print(err.Error())
-			return errors.New("unable to suscribe with proxy")
+
+		buf := make([]byte, 1024)
+		n, err := conn.Read(buf)
+		if err != nil || strings.TrimSpace(string(buf[:n])) != "OK" {
+			return errors.New("proxy registration rejected")
 		}
-		if response != "OK\n" {
-			return errors.New("proxy didnt accept the suscription")
-		}
-		conn.Close()
 	}
 
-	//create zeromq socket and listen in the given port
-	socket := zmq4.NewRouter(context.Background())
-	socket.SetOption(zmq4.OptionHWM, 10000000)
-	s.socket = socket
-	if err := socket.Listen(fmt.Sprintf("tcp://*:%d", s.port)); err != nil {
-		return err
-	}
-	log.Print("Listening on port: ", s.port)
-	//initialize workers
-	for i := 0; i < s.nWorkers; i++ {
-		channel := make(chan zmq4.Msg)
-		s.channels = append(s.channels, channel)
-		go s.worker(channel, i+1)
-	}
-	go func() {
-		defer socket.Close()
-		nexInLine := 0
-		for {
-			message, err := socket.Recv()
-			if err == nil {
-				s.channels[nexInLine] <- message
-				nexInLine = (nexInLine + 1) % s.nWorkers
-			}
-		}
-	}()
-	return nil
+	//CREATING ZEROMQ PROXY
+    proxy := goczmq.NewProxy()
+    defer proxy.Destroy()
+
+    //SETTING FRONTEND ROUTER FOR OUR ZEROMQ PROXY
+    if err := proxy.SetFrontend(goczmq.Router, fmt.Sprintf("tcp://*:%d", s.port)); err != nil {
+        return fmt.Errorf("frontend setup failed: %v", err)
+    }
+
+    //SETTING THE BACKEND FOR OUR ZEROMQ BACKEND
+    if err := proxy.SetBackend(goczmq.Dealer, "inproc://backend"); err != nil {
+        return fmt.Errorf("backend setup failed: %v", err)
+    }
+
+    //we start the number or workers to work with
+    for i := 0; i < s.nWorkers; i++ {
+        go s.worker(i + 1)
+    }
+
+    log.Printf("Server listening on port %d with %d workers", s.port, s.nWorkers)
+    <-s.endChannel
+    return nil
 }
 
-// internal method to process each request message, it validates the message and communicates with the service
-func (s *LoadBServer) worker(channel chan zmq4.Msg, goRoutineId int) {
-	log.Printf("Initializing worker %d\n", goRoutineId)
-	for message := range channel {
-		clientIdentity := message.Frames[0]
+func (s *LoadBServer) worker(workerID int) {
+	//WORKER CONNECTS WITH ITS DEALER SOCKET TO THE BACKEND
+    dealer, err := goczmq.NewDealer("inproc://backend")
+    if err != nil {
+        log.Printf("Worker %d failed to connect: %v", workerID, err)
+        return
+    }
+    defer dealer.Destroy()
 
+    log.Printf("Worker %d initialized and connected", workerID)
+
+    for {
+        msg, err := dealer.RecvMessage()
+        if err != nil {
+            log.Printf("Worker %d receive error: %v", workerID, err)
+            continue
+        }
+
+        clientIdentity := msg[0]
+		body := msg[1]
 		//for proxy purposes
 		var clientId []byte = []byte{}
-		if len(message.Frames) > 2 {
-			clientId = message.Frames[2]
+		if len(msg) > 2 {
+			clientId = msg[2]
 		}
 		//read request body
 		//if the message is of acceptance, then we ignore
-		if strings.Contains(string(message.Frames[1]),  "ACCEPT" ){
-			return
+		if strings.Contains(string(msg[1]),  "ACCEPT" ){
+			continue
 		}
-		clientRequestBytes := message.Frames[1]
 		clientRequest := domain.DTIRequestDTO{}
 
 		////////////  HEALTH CHECK VALIDATION  //////////////////////////////////////////
 		//if message wasnt a request, we check if it was a HEALTH CHECK
-		if err := json.Unmarshal(clientRequestBytes, &clientRequest); err != nil || clientRequest.Semester == "" {
+		if err := json.Unmarshal(body, &clientRequest); err != nil || clientRequest.Semester == "" {
 			hCheck := HealthCheckDTO{}
-			if err := json.Unmarshal(clientRequestBytes, &hCheck); err != nil {
+			if err := json.Unmarshal(body, &hCheck); err != nil {
 				continue
 			}
 			//if it was a health check, we answer with a simple 1 byte
 			log.Print("ANSWERING HEALTH CHECK")
-			s.socket.Send(zmq4.NewMsgFrom(clientIdentity, []byte{1}))
+			dealer.SendMessage([][]byte{clientIdentity, {1}})
 			continue
 		}
 		////////////  HEALTH CHECK VALIDATION  //////////////////////////////////////////
+	
 
-		//process message with the service
-		response, err := s.service.ProcessRequest(clientRequest, goRoutineId)
-		var responseBytes []byte
-		if err != nil {
-			//if there was an error, we send it in the authorized format
-			errorResponse := domain.DTIResponseDTO{
-				Semester:     clientRequest.Semester,
-				ErrorFound:   true,
-				ErrorMessage: err.Error(),
-			}
-			responseBytes, _ = json.Marshal(errorResponse)
-		} else {
-			//send response to the spceified client
-			responseBytes, _ = json.Marshal(response)
-		}
-		//send message with client ID (if recived one, means, we are using proxy)
-		if err := s.socket.Send(zmq4.NewMsgFrom(clientIdentity, responseBytes, clientId)); err != nil {
-			continue
-		}
-		if err == nil {
-			//check if we completed all the faculties so we send the end signal
-			s.lock.Lock()
-			s.counter++
-			if s.counter == s.faculties {
-				s.lock.Unlock()
+        response, err := s.service.ProcessRequest(clientRequest, workerID)
+        var respBytes []byte
+        if err != nil {
+            respBytes = s.createErrorResponse(clientRequest.Semester, err.Error())
+        } else {
+            respBytes, _ = json.Marshal(response)
+        }
+
+        // Send response
+        reply := [][]byte{clientIdentity, respBytes, clientId}
+        if err := dealer.SendMessage(reply); err != nil {
+            log.Printf("Worker %d response error: %v", workerID, err)
+        }
+
+        // Update completion counter
+        if err == nil {
+            s.lock.Lock()
+            s.counter++
+            if s.counter >= s.faculties {
+               	s.lock.Unlock()
 				s.endChannel <- true
-			}else{
-				s.lock.Unlock()
+				s.endChannel <- true
+            }else{
+            	s.lock.Unlock()
 			}
-		}
+        }
+    }
+}
+
+func (s *LoadBServer) createErrorResponse(semester, message string) []byte {
+	errResp := domain.DTIResponseDTO{
+		Semester:     semester,
+		ErrorFound:   true,
+		ErrorMessage: message,
 	}
+	resp, _ := json.Marshal(errResp)
+	return resp
 }

@@ -58,6 +58,49 @@ resource "google_storage_bucket_object" "case2" {
   bucket = google_storage_bucket.scripts.name
   source = "../test-cases/case2.py"
 }
+resource "google_storage_bucket_object" "case3" {
+  name   = "case3.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case3.py"
+}
+
+resource "google_storage_bucket_object" "case4" {
+  name   = "case4.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case4.py"
+}
+
+resource "google_storage_bucket_object" "case51" {
+  name   = "case5.1.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case5.1.py"
+}
+
+resource "google_storage_bucket_object" "case52" {
+  name   = "case5.2.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/case5.2.py"
+}
+
+
+resource "google_storage_bucket_object" "metricasc1" {
+  name   = "metricasc1.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/metricasc1.py"
+}
+
+resource "google_storage_bucket_object" "metricasc2" {
+  name   = "metricasc2.py"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/metricasc2.py"
+}
+
+resource "google_storage_bucket_object" "bash" {
+  name   = "script.sh"
+  bucket = google_storage_bucket.scripts.name
+  source = "../test-cases/script.sh"
+}
+
 
 
 #load docker compose file

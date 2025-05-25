@@ -18,23 +18,12 @@ type CollegeServiceImpl struct {
 	Lock             *sync.RWMutex //lock for retrieving the semester info, is Read Write since it depends on if we are reading or writing
 	Semester         domain.SemesterAvailabilityModel
 	logWriterChannel chan *domain.AssignationModel
-	semesterCreated  bool
 	first            bool
-	alreadyExisted   bool
 }
 
 func NewCollegeService(config *domain.ServiceConfig, repository repository.CollegeRepository) (domain.CollegeService, error) {
 	//validate if semester already was processed
-	sem, err := repository.GetSemester(config.Semester)
 	var id uuid.UUID = uuid.New()
-	alreadyExisted := false
-	if err != nil {
-		return nil, domain.ErrorStartingService
-	}
-	if sem != nil {
-		id = sem.ID
-		alreadyExisted = true
-	}
 
 	//register semester in db
 	semester := domain.SemesterAvailabilityModel{
@@ -49,9 +38,7 @@ func NewCollegeService(config *domain.ServiceConfig, repository repository.Colle
 		repository:      repository,
 		Semester:        semester,
 		Lock:            &sync.RWMutex{},
-		semesterCreated: false,
 		first:           false,
-		alreadyExisted:  alreadyExisted,
 	}
 	//start writers go routines and save the channel to communicate with them
 	logWriterChannel := service.startDbLogWriter()
@@ -71,15 +58,23 @@ func (s *CollegeServiceImpl) ProcessRequest(request domain.DTIRequestDTO, goRout
 
 	//check if the semester already existed but its the first request, in which case we need to get the updated availaility
 	s.Lock.Lock()
-	if s.alreadyExisted && !s.first {
-		res, err := s.repository.GetAssignedResourcesOfSemester(s.Semester.ID)
-		if err != nil {
-			s.Lock.Unlock()
-			return nil, errors.New("unable to load resources")
+	if !s.first {
+		//check if semester already existed 
+		sem, _ := s.repository.GetSemester(s.Semester.Semester)
+		if sem != nil{
+			s.Semester.ID = sem.ID
+			res, err := s.repository.GetAssignedResourcesOfSemester(s.Semester.ID)
+			if err != nil {
+				s.Lock.Unlock()
+				return nil, errors.New("unable to load resources")
+			}
+			s.Semester.Classrooms -= res.Classrooms
+			s.Semester.Labs -= res.Labs
+			s.Semester.MobileLabs -= res.MobileLabs
+			log.Printf("TAKING FROM WHERE PREVIOUS SERVER LEFT WITH %d classrooms, %d labs and %d mobile labs", s.Semester.Classrooms, s.Semester.Labs, s.Semester.MobileLabs)
+		}else{
+			s.repository.CreateSemester(&s.Semester)
 		}
-		s.Semester.Classrooms -= res.Classrooms
-		s.Semester.Labs -= res.Labs
-		s.Semester.MobileLabs -= res.MobileLabs
 		s.first = true
 	}
 	s.Lock.Unlock()
@@ -143,12 +138,7 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 	}
 
 	//LOCK THE SEMESTER RESOURCES FOR THE PROCESSING
-	//if not yet created the semester then we create it
 	s.Lock.Lock()
-	if !s.semesterCreated && !s.alreadyExisted {
-		s.repository.CreateSemester(&s.Semester)
-		s.semesterCreated = true
-	}
 
 	//with the logic below we can check all the assignation with or without mobile labs
 	mobileLabsNeeded := programResponse.RequestedLabs - s.Semester.Labs //if with only the availala labs is enough, this will be 0 or negative
@@ -181,6 +171,16 @@ func (s *CollegeServiceImpl) processProgramRequest(programs []domain.DTIProgramR
 	s.Semester.MobileLabs -= programResponse.MobileLabs
 	if s.Semester.MobileLabs > s.Semester.Classrooms {
 		s.Semester.MobileLabs = s.Semester.Classrooms
+	}
+
+	if programResponse.Classrooms < 0{
+		programResponse.Classrooms = 0
+	}
+	if programResponse.Labs < 0{
+		programResponse.Labs = 0
+	}
+	if programResponse.MobileLabs < 0{
+		programResponse.MobileLabs = 0
 	}
 
 	//create assignation model (for DB)

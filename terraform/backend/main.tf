@@ -31,7 +31,7 @@ resource "google_compute_instance" "proxy_vm"{
 
 resource "google_compute_instance" "req_rep_vm"{
     name = "req-rep-vm"
-    machine_type = "e2-standard-2"
+    machine_type = "e2-standard-4"
     zone = var.zone1_name
     boot_disk {
         initialize_params {
@@ -69,7 +69,7 @@ resource "google_compute_instance" "req_rep_vm"{
 
 resource "google_compute_instance" "lb_vm"{
     name = "lb-vm"
-    machine_type = "e2-standard-2"
+    machine_type = "e2-standard-4"
     zone = var.zone2_name
     boot_disk {
         initialize_params {

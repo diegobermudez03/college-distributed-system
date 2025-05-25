@@ -14,6 +14,7 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/pebbe/zmq4 v1.4.0 // indirect
+	github.com/zeromq/goczmq v4.1.0+incompatible // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/text v0.15.0 // indirect

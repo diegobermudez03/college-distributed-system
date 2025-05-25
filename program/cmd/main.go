@@ -44,7 +44,7 @@ func main() {
 	//check number of arguments, should be (using labels so that the order dont matter):
 	// --name=<program-name> --semester=<semester> --classrooms=<num-classrooms> --labs=<num-labs> --faculty-server=<faculty-address>
 	//	executable --name=Ingenieria-Sistemas --semester=2025-10 --classrooms=4 --labs=10 --faculty-server=127.0.0.1:5000
-	if len(os.Args) < 6 {
+	if len(os.Args) < 5 {
 		log.Fatal("invalid number of arguments")
 	}
 
@@ -78,9 +78,21 @@ func main() {
 	}
 
 	//check if all the request attributes where obtained from the flags
-	if request.ProgramName == "" || request.Semester == "" || request.Classrooms == nil || request.Labs == nil {
+	if request.ProgramName == "" || request.Semester == "" || (request.Classrooms == nil && request.Labs == nil) {
 		log.Fatal("invalid request")
 	}
+
+	if request.Classrooms == nil{
+		request.Classrooms = new(int)
+		*request.Classrooms = 0
+	}
+
+	if request.Labs == nil{
+		request.Labs = new(int)
+		*request.Labs = 0
+	}
+
+
 
 	//establish connection with the faculty
 	socket := zmq4.NewReq(context.Background(), zmq4.WithDialerRetry(time.Second))

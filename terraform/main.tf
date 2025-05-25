@@ -59,7 +59,7 @@ module "backend" {
 ##create vm for faculties and programs
 resource "google_compute_instance" "clients_vm"{
     name = "clients-vm"
-    machine_type = "e2-standard-2"
+    machine_type = "e2-small"
     zone = "us-central1-a"
     boot_disk {
         initialize_params {
@@ -83,8 +83,16 @@ resource "google_compute_instance" "clients_vm"{
         gcloud storage cp gs://${module.buckets.program_exe_obj_name} ./home/
         gcloud storage cp gs://${module.buckets.script_case1} ./home/
         gcloud storage cp gs://${module.buckets.script_case2} ./home/
+        gcloud storage cp gs://${module.buckets.script_case3} ./home/
+        gcloud storage cp gs://${module.buckets.script_case4} ./home/
+        gcloud storage cp gs://${module.buckets.script_case51} ./home/
+        gcloud storage cp gs://${module.buckets.script_case52} ./home/
+        gcloud storage cp gs://${module.buckets.script_bash} ./home/
+        gcloud storage cp gs://${module.buckets.metricasc1} ./home/
+        gcloud storage cp gs://${module.buckets.metricasc2} ./home/
         chmod +x ./home/${module.buckets.fac_exec_name}
         chmod +x ./home/${module.buckets.program_exec_name}
+        chmod +x ./home/script.sh
         echo 'export DTI_ADDRESS=${module.backend.proxy_address}' | sudo tee /etc/profile.d/env_vars.sh
         source /etc/profile.d/env_vars.sh
         EOF
